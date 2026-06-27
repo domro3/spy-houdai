@@ -55,13 +55,14 @@ export function chooseCpuPlea(_state: GameState, player: Player, rng: RandomSour
 
 export function shouldUseSuspiciousCoin(state: GameState, spy: Player, rng: RandomSource): boolean {
   if (spy.hasUsedCoin || spy.role !== 'spy') return false;
-  const roundBase = [0, 0, 0.1, 0.2, 0.4, 0.6][state.round] ?? 0.4;
+  if (state.round < ACTION_BALANCE.suspiciousCoinMinRound) return false;
+  const roundBase = [0, 0, 0, 0.1, 0.2, 0.35][state.round] ?? 0.2;
   const highestCitizenSuspicion = state.players
     .filter((player) => player.role === 'gunner')
     .reduce((max, player) => Math.max(max, player.suspicion), 0);
-  const pressureBonus = spy.suspicion >= 5 ? 0.3 : 0;
-  const decoyBonus = highestCitizenSuspicion >= 5 ? 0.2 : 0;
-  return rng.next() < Math.min(0.95, roundBase + pressureBonus + decoyBonus);
+  const pressureBonus = spy.suspicion >= 5 ? 0.15 : 0;
+  const decoyBonus = highestCitizenSuspicion >= 5 ? 0.1 : 0;
+  return rng.next() < Math.min(0.7, roundBase + pressureBonus + decoyBonus);
 }
 
 export function chooseCpuVote(state: GameState, voter: Player, rng: RandomSource): string {

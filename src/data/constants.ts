@@ -6,9 +6,9 @@ export const PLAYER_LIMITS = {
 };
 
 export const BALANCE_BY_PLAYER_COUNT: Record<number, { bossHp: number; baseHp: number; rounds: number }> = {
-  4: { bossHp: 750, baseHp: 100, rounds: 5 },
-  5: { bossHp: 1000, baseHp: 100, rounds: 5 },
-  6: { bossHp: 1250, baseHp: 100, rounds: 5 },
+  4: { bossHp: 430, baseHp: 100, rounds: 5 },
+  5: { bossHp: 560, baseHp: 100, rounds: 5 },
+  6: { bossHp: 710, baseHp: 100, rounds: 5 },
 };
 
 export const ACTION_BALANCE = {
@@ -22,16 +22,22 @@ export const ACTION_BALANCE = {
   sabotagedDefendReduction: 0.3,
   repairAmount: 20,
   sabotagedRepairAmount: 10,
-  fakeAttackDamage: 20,
-  bossHealAmount: 80,
-  sabotageAttackMultiplier: 0.5,
-  sabotageChargePenalty: 0.25,
-  suspiciousCoinSuccessRate: 0.5,
+  fakeAttackDamage: 30,
+  bossHealAmount: 50,
+  sabotageAttackMultiplier: 0.7,
+  sabotageChargePenalty: 0.2,
+  suspiciousCoinMinRound: 3,
+  suspiciousCoinSuccessRate: 0.4,
+  suspiciousCoinFailureSuspicion: 2,
+  fakeAttackSuspicion: 1,
+  bossHealSuspicion: 5,
+  sabotageSuspicion: 4,
+  scrambleLogSuspicion: 3,
 };
 
 export const BOSS_BALANCE = {
-  normalAttack: 15,
-  strongAttack: 25,
+  normalAttack: 10,
+  strongAttack: 18,
   weakAttack: 10,
   specialRate: 0.2,
 };

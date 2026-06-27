@@ -8,7 +8,7 @@ describe('GameEngine setup', () => {
   it('assigns exactly one spy', () => {
     const engine = new GameEngine({ totalPlayers: 5, humanPlayers: 1, seed: 10 });
     expect(engine.state.players.filter((player) => player.role === 'spy')).toHaveLength(1);
-    expect(engine.state.bossHp).toBe(1000);
+    expect(engine.state.bossHp).toBe(560);
     expect(engine.state.baseHp).toBe(100);
   });
 
@@ -28,13 +28,13 @@ describe('round resolution', () => {
       });
     }
     engine.resolveActions();
-    expect(engine.state.bossHp).toBe(750 - 60 * 3 - 20);
+    expect(engine.state.bossHp).toBe(430 - 60 * 3 - 30);
     expect(engine.state.phase).toBe('plea');
   });
 
   it('lets the spy heal the boss', () => {
     const engine = new GameEngine({ totalPlayers: 4, humanPlayers: 0, seed: 21, spyId: 'p4' });
-    engine.state.bossHp = 500;
+    engine.state.bossHp = 300;
     for (const player of engine.state.players) {
       engine.submitAction({
         playerId: player.id,
@@ -42,8 +42,8 @@ describe('round resolution', () => {
       });
     }
     engine.resolveActions();
-    expect(engine.state.bossHp).toBe(500 - 60 * 3 + 80);
-    expect(engine.spy().stats.bossHealing).toBe(80);
+    expect(engine.state.bossHp).toBe(300 - 60 * 3 + 50);
+    expect(engine.spy().stats.bossHealing).toBe(50);
   });
 
   it('progresses through round 5 and finishes', () => {
@@ -89,7 +89,7 @@ describe('win conditions', () => {
 
 describe('votes and special rules', () => {
   it('applies suspicious coin success as two votes', () => {
-    const engine = readyVoteEngine(1, 0.1);
+    const engine = readyVoteEngine(3, 0.1);
     engine.useSuspiciousCoin('p4');
     expect(engine.spy().coinResult).toBe('success');
     for (const player of engine.state.players) {
@@ -104,12 +104,17 @@ describe('votes and special rules', () => {
   });
 
   it('raises suspicion when suspicious coin fails', () => {
-    const engine = readyVoteEngine(1, 0.9);
+    const engine = readyVoteEngine(3, 0.9);
     const before = engine.spy().suspicion;
     const event = engine.useSuspiciousCoin('p4');
     expect(event.success).toBe(false);
     expect(engine.spy().coinResult).toBe('failed');
     expect(engine.spy().suspicion).toBeGreaterThan(before);
+  });
+
+  it('does not allow suspicious coin before round 3', () => {
+    const engine = readyVoteEngine(2, 0.1);
+    expect(() => engine.useSuspiciousCoin('p4')).toThrow(/round 3/);
   });
 
   it('triggers round 3 branch voting before round 4', () => {

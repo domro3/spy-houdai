@@ -83,6 +83,9 @@ export class GameEngine {
     if (player.hasUsedCoin) {
       throw new Error('Suspicious coin can only be used once');
     }
+    if (this.state.round < ACTION_BALANCE.suspiciousCoinMinRound) {
+      throw new Error(`Suspicious coin can only be used from round ${ACTION_BALANCE.suspiciousCoinMinRound}`);
+    }
 
     const success = this.rng.next() < ACTION_BALANCE.suspiciousCoinSuccessRate;
     player.hasUsedCoin = true;
@@ -91,7 +94,7 @@ export class GameEngine {
     this.currentSummary().suspiciousCoin = event;
     this.state.publicLogs.push('投票システムに不自然な加重反応を検出しました。');
     if (!success) {
-      changeSuspicion(player, 2);
+      changeSuspicion(player, ACTION_BALANCE.suspiciousCoinFailureSuspicion);
       this.state.publicLogs.push('異常反応は失敗し、どこかの砲台の疑惑値が上昇しました。');
     }
     return event;
@@ -192,22 +195,23 @@ export class GameEngine {
           break;
         case 'fake_attack':
           this.applyDamage(player, ACTION_BALANCE.fakeAttackDamage, damageMultiplier, sabotaged, summary);
+          changeSuspicion(player, ACTION_BALANCE.fakeAttackSuspicion);
           break;
         case 'boss_heal': {
           const healed = this.healBoss(ACTION_BALANCE.bossHealAmount);
           player.stats.bossHealing += healed;
           summary.bossHealing += healed;
-          changeSuspicion(player, 2);
+          changeSuspicion(player, ACTION_BALANCE.bossHealSuspicion);
           break;
         }
         case 'sabotage':
           player.stats.sabotage += 1;
-          changeSuspicion(player, 1);
+          changeSuspicion(player, ACTION_BALANCE.sabotageSuspicion);
           break;
         case 'scramble_log':
           summary.scrambleLog = true;
           player.stats.logScrambles += 1;
-          changeSuspicion(player, 1);
+          changeSuspicion(player, ACTION_BALANCE.scrambleLogSuspicion);
           break;
         default:
           assertNever(action.type);
