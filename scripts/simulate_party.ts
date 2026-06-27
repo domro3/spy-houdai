@@ -5,7 +5,7 @@ const summary = runSimulation({
   games: numberArg(args.games, 30),
   players: numberArg(args.players, 5),
   seed: numberArg(args.seed, 20260627),
-  mode: args.mode === 'party' ? 'party' : 'advanced',
+  mode: 'party',
 });
 
 if (args.json === 'true') {

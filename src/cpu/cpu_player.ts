@@ -55,6 +55,7 @@ export function chooseCpuPlea(_state: GameState, player: Player, rng: RandomSour
 }
 
 export function shouldUseSuspiciousCoin(state: GameState, spy: Player, rng: RandomSource): boolean {
+  if (state.mode === 'party') return false;
   if (spy.hasUsedCoin || spy.role !== 'spy') return false;
   if (state.round < ACTION_BALANCE.suspiciousCoinMinRound) return false;
   const roundBase = [0, 0, 0, 0.1, 0.2, 0.35][state.round] ?? 0.2;
@@ -67,6 +68,10 @@ export function shouldUseSuspiciousCoin(state: GameState, spy: Player, rng: Rand
 }
 
 export function chooseCpuVote(state: GameState, voter: Player, rng: RandomSource): string {
+  if (state.mode === 'party') {
+    return choosePartyVote(state, voter, rng);
+  }
+
   const candidates = state.players.filter((player) => player.id !== voter.id);
   const scored = candidates
     .map((target) => ({
@@ -114,6 +119,10 @@ export function chooseCpuBranchPlan(state: GameState, voter: Player, rng: Random
 }
 
 function chooseGunnerAction(state: GameState, player: Player, rng: RandomSource): ActionType {
+  if (state.mode === 'party') {
+    return choosePartyGunnerAction(state, player, rng);
+  }
+
   const needsRepair = state.baseHp <= 45;
   const needsDefense = state.baseHp <= 35;
   const bossLow = state.bossHp / state.bossMaxHp <= 0.25;
@@ -159,6 +168,10 @@ function chooseGunnerAction(state: GameState, player: Player, rng: RandomSource)
 }
 
 function chooseSpyAction(state: GameState, player: Player, rng: RandomSource): ActionType {
+  if (state.mode === 'party') {
+    return choosePartySpyAction(state, player, rng);
+  }
+
   const roundTables: Record<number, Array<{ value: ActionType; weight: number }>> = {
     1: [
       { value: 'normal_attack', weight: 35 },
@@ -233,12 +246,114 @@ function chooseTargetId(state: GameState, player: Player, type: ActionType, rng:
   if (type !== 'scan' && type !== 'sabotage') return undefined;
   const candidates = state.players.filter((candidate) => candidate.id !== player.id);
   if (type === 'sabotage') {
+    if (state.mode === 'party') {
+      return weightedChoice(candidates.map((candidate) => ({
+        value: candidate.id,
+        weight: partySabotageTargetWeight(state, candidate),
+      })), rng);
+    }
     return weightedChoice(candidates.map((candidate) => ({
       value: candidate.id,
       weight: candidate.lastAction === 'charge_attack' ? 3 : 1,
     })), rng);
   }
   return [...candidates].sort((a, b) => b.suspicion - a.suspicion)[0]?.id;
+}
+
+function choosePartyGunnerAction(state: GameState, player: Player, rng: RandomSource): ActionType {
+  const baseRate = state.baseHp / state.baseMaxHp;
+  const bossRate = state.bossHp / state.bossMaxHp;
+  const bossAction = state.currentBossAction;
+  const options: Array<{ value: ActionType; weight: number }> = [
+    { value: 'normal_attack', weight: 62 },
+    { value: 'defend', weight: 12 },
+    { value: 'repair', weight: baseRate <= 0.55 ? 28 : 7 },
+  ];
+
+  if (bossAction.type === 'big_charge') {
+    adjust(options, 'defend', 42);
+    adjust(options, 'normal_attack', -10);
+  }
+  if (bossAction.type === 'target_lock' && bossAction.targetPlayerId === player.id) {
+    adjust(options, 'defend', 70);
+    adjust(options, 'normal_attack', -18);
+  }
+  if (bossAction.type === 'armor_regen') {
+    adjust(options, 'normal_attack', 44);
+    adjust(options, 'defend', -8);
+    adjust(options, 'repair', baseRate <= 0.3 ? 0 : -5);
+  }
+  if (baseRate <= 0.35) {
+    adjust(options, 'repair', 42);
+    adjust(options, 'normal_attack', -12);
+  }
+  if (bossRate <= 0.22) {
+    adjust(options, 'normal_attack', 28);
+    adjust(options, 'repair', -8);
+  }
+
+  return weightedChoice(options, rng);
+}
+
+function choosePartySpyAction(state: GameState, _player: Player, rng: RandomSource): ActionType {
+  const bossRate = state.bossHp / state.bossMaxHp;
+  const baseRate = state.baseHp / state.baseMaxHp;
+  const options: Array<{ value: ActionType; weight: number }> = [
+    { value: 'fake_attack', weight: state.round <= 2 ? 58 : 38 },
+    { value: 'sabotage', weight: state.round <= 2 ? 25 : 36 },
+    { value: 'boss_heal', weight: state.round <= 2 ? 12 : 28 },
+  ];
+
+  if (state.currentBossAction.type === 'big_charge' || state.currentBossAction.type === 'target_lock') {
+    adjust(options, 'sabotage', 24);
+    adjust(options, 'fake_attack', -6);
+  }
+  if (state.currentBossAction.type === 'armor_regen') {
+    adjust(options, 'fake_attack', 12);
+    adjust(options, 'boss_heal', 8);
+  }
+  if (bossRate <= 0.28) {
+    adjust(options, 'boss_heal', 30);
+    adjust(options, 'sabotage', 10);
+    adjust(options, 'fake_attack', -12);
+  }
+  if (baseRate <= 0.35) {
+    adjust(options, 'fake_attack', 16);
+    adjust(options, 'boss_heal', -10);
+  }
+
+  return weightedChoice(options, rng);
+}
+
+function choosePartyVote(state: GameState, voter: Player, rng: RandomSource): string {
+  const candidates = state.players.filter((player) => player.id !== voter.id);
+  if (voter.role === 'spy') {
+    return weightedChoice(candidates
+      .filter((candidate) => candidate.role === 'gunner')
+      .map((candidate) => ({ value: candidate.id, weight: 1 })), rng);
+  }
+
+  return weightedChoice(candidates.map((candidate) => ({
+    value: candidate.id,
+    weight: candidate.role === 'spy'
+      ? (candidate.lastAction === 'boss_heal' || candidate.lastAction === 'sabotage' ? 1.8 : 1.3)
+      : 1,
+  })), rng);
+}
+
+function partySabotageTargetWeight(state: GameState, candidate: Player): number {
+  const bossAction = state.currentBossAction;
+  if (bossAction.type === 'target_lock' && bossAction.targetPlayerId === candidate.id) return 5;
+  if (bossAction.type === 'big_charge') {
+    if (candidate.cpuProfile === 'defender') return 4;
+    if (candidate.cpuProfile === 'support') return 3;
+    return 1.5;
+  }
+  if (bossAction.type === 'armor_regen') {
+    if (candidate.cpuProfile === 'attacker') return 4;
+    if (candidate.cpuProfile === 'follower') return 2;
+  }
+  return 1;
 }
 
 function suspicionScore(state: GameState, voter: Player, target: Player): number {

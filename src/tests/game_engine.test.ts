@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { GameEngine } from '../core/game_engine';
 import { runCpuGame } from '../cpu/autoplay';
 import { runSimulation } from '../sim/simulation';
+import { BOSS_DEFINITIONS } from '../data/constants';
 import type { RandomSource, RoundSummary } from '../core/types';
 
 describe('GameEngine setup', () => {
@@ -163,6 +164,83 @@ describe('CPU simulation', () => {
   });
 });
 
+describe('Party Mode', () => {
+  it('uses compact action sets for gunners and spy', () => {
+    const engine = new GameEngine({
+      totalPlayers: 4,
+      humanPlayers: 0,
+      seed: 60,
+      spyId: 'p4',
+      mode: 'party',
+    });
+
+    expect(engine.availableActions('p1')).toEqual(['normal_attack', 'defend', 'repair']);
+    expect(engine.availableActions('p4')).toEqual(['fake_attack', 'sabotage', 'boss_heal']);
+    expect(() => engine.submitAction({ playerId: 'p1', type: 'scan', targetId: 'p4' })).toThrow();
+  });
+
+  it('defines prototype_gigant as data-driven boss content', () => {
+    const boss = BOSS_DEFINITIONS.prototype_gigant;
+    expect(boss.id).toBe('prototype_gigant');
+    expect(boss.name).toBe('プロトタイプ・ギガント');
+    expect(boss.actionWeights).toMatchObject({
+      normal_attack: 40,
+      big_charge: 25,
+      armor_regen: 20,
+      target_lock: 15,
+    });
+  });
+
+  it('treats final spy guessing as a bonus, not spy-behind victory', () => {
+    const engine = new GameEngine({
+      totalPlayers: 4,
+      humanPlayers: 0,
+      seed: 61,
+      spyId: 'p4',
+      mode: 'party',
+    });
+    engine.state.bossHp = 1;
+    completePartyRound(engine, 'normal_attack');
+    expect(engine.state.phase).toBe('vote');
+    for (const player of engine.state.players) {
+      engine.submitVote({
+        voterId: player.id,
+        targetId: player.id === 'p1' ? 'p2' : 'p1',
+      });
+    }
+    engine.resolveVotes();
+
+    expect(engine.state.result?.bossDefeated).toBe(true);
+    expect(engine.state.result?.winner).toBe('gunners');
+    expect(engine.state.result?.spyBehindWin).toBe(false);
+  });
+
+  it('keeps Party Mode round logs short and skips advanced special systems', () => {
+    const state = runCpuGame({
+      totalPlayers: 5,
+      humanPlayers: 0,
+      seed: 62,
+      mode: 'party',
+    });
+
+    expect(state.phase).toBe('finished');
+    expect(state.history.length).toBeGreaterThan(0);
+    expect(state.history.every((round) => round.publicLogs.length >= 3 && round.publicLogs.length <= 4)).toBe(true);
+    expect(state.history.some((round) => round.branchPlan)).toBe(false);
+    expect(state.history.some((round) => round.suspiciousCoin)).toBe(false);
+    expect(state.result?.spyBehindWin).toBe(false);
+  });
+
+  it('aggregates Party Mode CPU simulations separately', () => {
+    const summary = runSimulation({ games: 10, players: 5, seed: 20260627, mode: 'party' });
+    expect(summary.mode).toBe('party');
+    expect(summary.records).toHaveLength(10);
+    expect(summary.gunnerWins + summary.spyWins).toBe(10);
+    expect(summary.spyBehindWins).toBe(0);
+    expect(summary.suspiciousCoinUses).toBe(0);
+  });
+});
+
 describe('log separation', () => {
   it('keeps round public logs to 3-5 lines', () => {
     const state = runCpuGame({ totalPlayers: 5, humanPlayers: 0, seed: 45 });
@@ -281,6 +359,16 @@ function completeDefenseRound(engine: GameEngine): void {
     }
     engine.resolveBranch();
   }
+}
+
+function completePartyRound(engine: GameEngine, gunnerAction: 'normal_attack' | 'defend' | 'repair'): void {
+  for (const player of engine.state.players) {
+    engine.submitAction({
+      playerId: player.id,
+      type: player.role === 'spy' ? 'fake_attack' : gunnerAction,
+    });
+  }
+  engine.resolveActions();
 }
 
 function submitOneActionRound(engine: GameEngine, p1Action: 'scan'): void {

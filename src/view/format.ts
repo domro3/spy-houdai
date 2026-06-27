@@ -1,6 +1,6 @@
 import { actionLabel, branchPlanLabel } from '../core/game_engine';
 import { suspicionStars } from '../core/suspicion';
-import type { ActionType, BranchPlan, Player } from '../core/types';
+import type { ActionType, BranchPlan, GameMode, Player } from '../core/types';
 
 export { actionLabel, branchPlanLabel, suspicionStars };
 
@@ -13,7 +13,26 @@ export function controlLabel(player: Player): string {
   return player.isCpu ? 'CPU' : '手動';
 }
 
-export function actionHelp(type: ActionType): string {
+export function actionHelp(type: ActionType, mode: GameMode = 'advanced'): string {
+  if (mode === 'party') {
+    switch (type) {
+      case 'normal_attack':
+        return '迷ったらこれ。ボスにダメージ';
+      case 'defend':
+        return '大技や狙い撃ちの被害を軽減';
+      case 'repair':
+        return '拠点耐久を回復';
+      case 'fake_attack':
+        return '撃っているふり。通常より低ダメージ';
+      case 'sabotage':
+        return '誰か1人の行動を少し弱くする';
+      case 'boss_heal':
+        return 'ボスを少し回復。強いが目立つ';
+      default:
+        return '';
+    }
+  }
+
   switch (type) {
     case 'normal_attack':
       return '安定して60ダメージ';

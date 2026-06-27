@@ -1,10 +1,11 @@
 import { runCpuGame } from '../cpu/autoplay';
-import type { GameState } from '../core/types';
+import type { GameMode, GameState } from '../core/types';
 
 export interface SimulationOptions {
   games: number;
   players: number;
   seed: number;
+  mode?: GameMode;
 }
 
 export interface SimulationGameRecord {
@@ -26,6 +27,7 @@ export interface SimulationSummary {
   games: number;
   players: number;
   seed: number;
+  mode: GameMode;
   gunnerWins: number;
   spyWins: number;
   spyBehindWins: number;
@@ -60,6 +62,7 @@ export function runSimulation(options: SimulationOptions): SimulationSummary {
       totalPlayers: options.players,
       humanPlayers: 0,
       seed: gameSeed,
+      mode: options.mode ?? 'advanced',
     }));
   });
 
@@ -74,6 +77,7 @@ export function runSimulation(options: SimulationOptions): SimulationSummary {
     games: options.games,
     players: options.players,
     seed: options.seed,
+    mode: options.mode ?? 'advanced',
     gunnerWins,
     spyWins,
     spyBehindWins,
@@ -95,6 +99,7 @@ export function runSimulation(options: SimulationOptions): SimulationSummary {
 export function formatSimulationSummary(summary: SimulationSummary): string {
   return [
     'スパイ砲台 CPU Simulation',
+    `モード: ${summary.mode === 'party' ? 'Party Mode' : 'Advanced Mode'}`,
     `試行回数: ${summary.games}`,
     `プレイヤー数: ${summary.players}`,
     `Seed: ${summary.seed}`,

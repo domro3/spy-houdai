@@ -1,4 +1,4 @@
-import type { ActionType, BranchPlan, CpuProfile } from '../core/types';
+import type { ActionType, BossDefinition, BranchPlan, CpuProfile } from '../core/types';
 
 export const PLAYER_LIMITS = {
   min: 4,
@@ -42,6 +42,63 @@ export const BOSS_BALANCE = {
   specialRate: 0.2,
 };
 
+export const PARTY_RULES = {
+  baseHp: 100,
+  rounds: 5,
+  expectedSecondsPerRound: 75,
+};
+
+export const PARTY_ACTION_BALANCE = {
+  attackDamage: 72,
+  weakAttackDamage: 34,
+  repairAmount: 18,
+  sabotagedRepairAmount: 10,
+  spyBossHealAmount: 36,
+  sabotageMultiplier: 0.75,
+};
+
+export const PARTY_BOSS_ACTION_BALANCE = {
+  normalAttackDamage: 10,
+  bigChargeDamage: 30,
+  bigChargeGuardedDamage: 15,
+  bigChargeNoisyGuardDamage: 22,
+  targetLockDamage: 24,
+  targetLockGuardedDamage: 8,
+  targetLockNoisyGuardDamage: 16,
+  armorRegenHeal: 36,
+  armorRegenBlockThresholdByPlayerCount: {
+    4: 150,
+    5: 205,
+    6: 260,
+  },
+};
+
+export const DEFAULT_BOSS_ID = 'prototype_gigant';
+
+export const BOSS_DEFINITIONS: Record<string, BossDefinition> = {
+  prototype_gigant: {
+    id: 'prototype_gigant',
+    name: 'プロトタイプ・ギガント',
+    description: '基本的な攻撃、装甲再生、狙い撃ちを使う標準ボス',
+    maxHpByPlayerCount: {
+      4: 780,
+      5: 930,
+      6: 1180,
+    },
+    actionWeights: {
+      normal_attack: 40,
+      big_charge: 25,
+      armor_regen: 20,
+      target_lock: 15,
+    },
+    specialRules: [
+      '大技チャージは防御で軽減できる',
+      '装甲再生は集中砲火で阻止できる',
+      '狙い撃ちは対象者の防御が有効',
+    ],
+  },
+};
+
 export const BRANCH_EFFECTS: Record<BranchPlan, { damageMultiplier: number; bossAttackDelta: number }> = {
   normal: { damageMultiplier: 1, bossAttackDelta: 0 },
   overdrive: { damageMultiplier: 0.9, bossAttackDelta: 10 },
@@ -74,6 +131,18 @@ export const SPY_ACTIONS: ActionType[] = [
   'scramble_log',
 ];
 
+export const PARTY_GUNNER_ACTIONS: ActionType[] = [
+  'normal_attack',
+  'defend',
+  'repair',
+];
+
+export const PARTY_SPY_ACTIONS: ActionType[] = [
+  'fake_attack',
+  'sabotage',
+  'boss_heal',
+];
+
 export const ACTION_LABELS: Record<ActionType, string> = {
   normal_attack: '通常攻撃',
   charge_attack: 'チャージ攻撃',
@@ -84,6 +153,15 @@ export const ACTION_LABELS: Record<ActionType, string> = {
   boss_heal: 'ボス回復',
   sabotage: '妨害',
   scramble_log: 'ログ撹乱',
+};
+
+export const PARTY_ACTION_LABELS: Partial<Record<ActionType, string>> = {
+  normal_attack: '撃つ',
+  defend: '守る',
+  repair: '直す',
+  fake_attack: '弱く撃つ',
+  sabotage: '邪魔する',
+  boss_heal: 'ボスを助ける',
 };
 
 export const PLEA_CARDS = [

@@ -13,10 +13,10 @@ import {
   Wrench,
   Zap,
 } from 'lucide-react';
-import { GameEngine, requiresTarget } from './core/game_engine';
+import { bossActionLabel, bossForecastLabel, GameEngine, requiresTarget } from './core/game_engine';
 import { PLEA_CARDS } from './data/constants';
 import { fillCpuActions, fillCpuBranchVotes, fillCpuPleas, fillCpuVotes, runCpuGame } from './cpu/autoplay';
-import type { ActionType, BranchPlan, Player } from './core/types';
+import type { ActionType, BossActionType, BranchPlan, GameMode, Player } from './core/types';
 import {
   actionHelp,
   actionLabel,
@@ -45,7 +45,13 @@ function App() {
   const [totalPlayers, setTotalPlayers] = useState(5);
   const [humanPlayers, setHumanPlayers] = useState(1);
   const [seed, setSeed] = useState(20260627);
-  const [engine, setEngine] = useState(() => new GameEngine({ totalPlayers: 5, humanPlayers: 1, seed: 20260627 }));
+  const [mode, setMode] = useState<GameMode>('party');
+  const [engine, setEngine] = useState(() => new GameEngine({
+    totalPlayers: 5,
+    humanPlayers: 1,
+    seed: 20260627,
+    mode: 'party',
+  }));
   const [, forceRender] = useState(0);
 
   const state = engine.state;
@@ -59,12 +65,12 @@ function App() {
   const rerender = () => forceRender((value) => value + 1);
 
   function resetGame() {
-    setEngine(new GameEngine({ totalPlayers, humanPlayers, seed }));
+    setEngine(new GameEngine({ totalPlayers, humanPlayers, seed, mode }));
   }
 
   function startCpuOnly() {
-    const result = runCpuGame({ totalPlayers, humanPlayers: 0, seed });
-    const nextEngine = new GameEngine({ totalPlayers, humanPlayers: 0, seed });
+    const result = runCpuGame({ totalPlayers, humanPlayers: 0, seed, mode });
+    const nextEngine = new GameEngine({ totalPlayers, humanPlayers: 0, seed, mode });
     nextEngine.state = result;
     setEngine(nextEngine);
   }
@@ -93,6 +99,13 @@ function App() {
           <h1>スパイ砲台</h1>
         </div>
         <div className="setup-controls">
+          <label>
+            モード
+            <select value={mode} onChange={(event) => setMode(event.target.value as GameMode)}>
+              <option value="party">Party</option>
+              <option value="advanced">Advanced</option>
+            </select>
+          </label>
           <label>
             人数
             <select
@@ -140,7 +153,7 @@ function App() {
           <div className="panel-heading">
             <div>
               <span className="section-kicker">現在の操作</span>
-              <h2>{phaseInstruction(state.phase)}</h2>
+              <h2>{phaseInstruction(state.phase, state.mode)}</h2>
             </div>
             <div className="button-row">
               <button type="button" className="icon-button" onClick={autoFillCurrentPhase} disabled={state.phase === 'finished'}>
@@ -213,6 +226,9 @@ function CentralStatusPanel({
 }) {
   const state = engine.state;
   const monitored = state.monitoredPlayerId ? engine.getPlayer(state.monitoredPlayerId) : undefined;
+  const bossTarget = state.currentBossAction.targetPlayerId
+    ? engine.getPlayer(state.currentBossAction.targetPlayerId)
+    : undefined;
   return (
     <section className="central-panel" aria-label="中央状況">
       <div className="central-header">
@@ -220,7 +236,7 @@ function CentralStatusPanel({
           <span className="section-kicker">中央画面</span>
           <h2>ROUND {Math.min(state.round, state.maxRounds)} / {state.maxRounds}</h2>
         </div>
-        <div className="phase-pill">{phaseLabel(state.phase)}</div>
+        <div className="phase-pill">{phaseLabel(state.phase, state.mode)}</div>
       </div>
 
       <div className="status-grid">
@@ -230,24 +246,60 @@ function CentralStatusPanel({
 
       <div className="central-facts">
         <div>
-          <span>作戦</span>
-          <strong>{branchPlanLabel(state.branchState.plan)}</strong>
-          <em>{state.branchState.condition ?? '判定前'}</em>
+          <span>モード</span>
+          <strong>{state.mode === 'party' ? 'Party Mode' : 'Advanced Mode'}</strong>
+          <em>{state.boss.name}</em>
         </div>
         <div>
-          <span>監視対象</span>
-          <strong>{monitored?.name ?? 'なし'}</strong>
-          <em>{monitored ? suspicionStars(monitored.suspicion) : '次回投票で決定'}</em>
+          <span>{state.mode === 'party' ? 'ボス予告' : '監視対象'}</span>
+          {state.mode === 'party' ? (
+            <>
+              <strong>{bossActionLabel(state.currentBossAction.type)}</strong>
+              <em>{bossTarget ? `${bossTarget.name}を狙っています` : bossForecastLabel(state.currentBossAction.type)}</em>
+            </>
+          ) : (
+            <>
+              <strong>{monitored?.name ?? 'なし'}</strong>
+              <em>{monitored ? suspicionStars(monitored.suspicion) : '次回投票で決定'}</em>
+            </>
+          )}
         </div>
         <div>
           <span>入力状況</span>
           <strong>{readyCount} / {totalCount}</strong>
-          <em>{phaseInputLabel(state.phase)}</em>
+          <em>{phaseInputLabel(state.phase, state.mode)}</em>
         </div>
       </div>
 
-      <SuspicionBoard engine={engine} />
+      {state.mode === 'party' ? <PartyStatusBoard engine={engine} /> : <SuspicionBoard engine={engine} />}
     </section>
+  );
+}
+
+function PartyStatusBoard({ engine }: { engine: GameEngine }) {
+  const state = engine.state;
+  const recentRound = state.history.at(-1);
+  return (
+    <div className="suspicion-board">
+      <div className="board-heading">
+        <h3>ボス戦メモ</h3>
+        <span>短いログとボス予告を優先</span>
+      </div>
+      <div className="party-status-list">
+        <div>
+          <span>次の判断</span>
+          <strong>{partyBossHint(state.currentBossAction.type)}</strong>
+        </div>
+        <div>
+          <span>直近火力</span>
+          <strong>{recentRound ? `${recentRound.totalDamage}ダメージ` : '未計測'}</strong>
+        </div>
+        <div>
+          <span>拠点修理</span>
+          <strong>{recentRound?.repairs ? `${recentRound.repairs}回復` : 'なし'}</strong>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -283,7 +335,7 @@ function PlayerControl({ player, engine, onChange }: { player: Player; engine: G
     return (
       <div className="manual-card">
         <ControlHeader player={player} title="行動選択" engine={engine} />
-        <SelectionStatus label="選択済み" value={selectedAction ? actionLabel(selectedAction.type) : '未選択'} />
+        <SelectionStatus label="選択済み" value={selectedAction ? actionLabel(selectedAction.type, state.mode) : '未選択'} />
         {selectedAction && requiresTarget(selectedAction.type) && selectedAction.targetId && (
           <SelectionStatus label="対象" value={engine.getPlayer(selectedAction.targetId).name} />
         )}
@@ -293,7 +345,7 @@ function PlayerControl({ player, engine, onChange }: { player: Player; engine: G
               type="button"
               key={type}
               className={selectedAction?.type === type ? 'choice selected' : 'choice'}
-              title={actionHelp(type)}
+              title={actionHelp(type, state.mode)}
               onClick={() => {
                 engine.submitAction({
                   playerId: player.id,
@@ -304,16 +356,18 @@ function PlayerControl({ player, engine, onChange }: { player: Player; engine: G
               }}
             >
               {ACTION_ICONS[type]}
-              <span>{actionLabel(type)}</span>
+              <span>{actionLabel(type, state.mode)}</span>
             </button>
           ))}
         </div>
-        <TargetSelect
-          player={player}
-          value={targetId}
-          engine={engine}
-          onChange={(next) => setTargetByPlayer({ ...targetByPlayer, [player.id]: next })}
-        />
+        {availableActions.some(requiresTarget) && (
+          <TargetSelect
+            player={player}
+            value={targetId}
+            engine={engine}
+            onChange={(next) => setTargetByPlayer({ ...targetByPlayer, [player.id]: next })}
+          />
+        )}
       </div>
     );
   }
@@ -338,10 +392,10 @@ function PlayerControl({ player, engine, onChange }: { player: Player; engine: G
   }
 
   if (state.phase === 'vote') {
-    const spyCanCoin = player.role === 'spy' && !player.hasUsedCoin;
+    const spyCanCoin = state.mode === 'advanced' && player.role === 'spy' && !player.hasUsedCoin;
     return (
       <div className="manual-card">
-        <ControlHeader player={player} title="疑惑投票" engine={engine} />
+        <ControlHeader player={player} title={state.mode === 'party' ? 'スパイ予想' : '疑惑投票'} engine={engine} />
         <SelectionStatus
           label="投票先"
           value={state.votes[player.id] ? engine.getPlayer(state.votes[player.id].targetId).name : '未選択'}
@@ -364,18 +418,20 @@ function PlayerControl({ player, engine, onChange }: { player: Player; engine: G
               </button>
             ))}
         </div>
-        <button
-          type="button"
-          className="icon-button"
-          disabled={!spyCanCoin}
-          onClick={() => {
-            engine.useSuspiciousCoin(player.id);
-            onChange();
-          }}
-        >
-          <Vote size={18} />
-          怪しいコイン
-        </button>
+        {state.mode === 'advanced' && (
+          <button
+            type="button"
+            className="icon-button"
+            disabled={!spyCanCoin}
+            onClick={() => {
+              engine.useSuspiciousCoin(player.id);
+              onChange();
+            }}
+          >
+            <Vote size={18} />
+            怪しいコイン
+          </button>
+        )}
       </div>
     );
   }
@@ -476,15 +532,15 @@ function PlayerCard({ player, engine, onChange }: { player: Player; engine: Game
         </div>
         <div>
           <dt>疑惑</dt>
-          <dd>{suspicionStars(player.suspicion)}</dd>
+          <dd>{engine.state.mode === 'advanced' ? suspicionStars(player.suspicion) : '簡易'}</dd>
         </div>
         <div>
           <dt>状態</dt>
-          <dd>{player.status === 'monitored' ? '監視対象' : '通常'}</dd>
+          <dd>{engine.state.mode === 'advanced' && player.status === 'monitored' ? '監視対象' : '通常'}</dd>
         </div>
         <div>
           <dt>行動</dt>
-          <dd>{submittedAction ? actionLabel(submittedAction.type) : '未選択'}</dd>
+          <dd>{submittedAction ? actionLabel(submittedAction.type, engine.state.mode) : '未選択'}</dd>
         </div>
       </dl>
       <div className="card-actions">
@@ -529,6 +585,13 @@ function ResultView({ engine }: { engine: GameEngine }) {
       <p>{result.bossDefeated ? 'ボス撃破成功' : 'ボス撃破失敗'} / 拠点耐久 {engine.state.baseHp}</p>
       <p>スパイ正体: {spy.name}</p>
       {result.spyBehindWin && <p>スパイ裏勝利: 最終投票でスパイを当てられませんでした。</p>}
+      {engine.state.mode === 'party' && result.finalVoteTargetId && (
+        <p>
+          おまけ投票:
+          {' '}
+          {result.finalVoteTargetId === result.spyId ? '名探偵砲台ボーナス' : 'スパイ潜伏成功'}
+        </p>
+      )}
       <div className="award-list">
         {result.awards.map((award) => (
           <div key={`${award.title}-${award.playerId}`}>
@@ -631,24 +694,34 @@ function branchOptions(condition?: string): BranchPlan[] {
   return ['normal'];
 }
 
-function phaseLabel(phase: string): string {
+function partyBossHint(type: BossActionType): string {
+  if (type === 'big_charge') return '守る人がいると安心';
+  if (type === 'armor_regen') return '集中して撃つチャンス';
+  if (type === 'target_lock') return '狙われた砲台は守る';
+  return '基本は撃つ';
+}
+
+function phaseLabel(phase: string, mode: GameMode): string {
   if (phase === 'action') return '行動選択';
+  if (mode === 'party' && phase === 'vote') return 'スパイ予想';
   if (phase === 'plea') return '弁明タイム';
   if (phase === 'vote') return '疑惑投票';
   if (phase === 'branch') return '中間作戦';
   return '結果発表';
 }
 
-function phaseInstruction(phase: string): string {
+function phaseInstruction(phase: string, mode: GameMode): string {
   if (phase === 'action') return '行動を選んでください';
+  if (mode === 'party' && phase === 'vote') return 'おまけでスパイを予想してください';
   if (phase === 'plea') return '弁明カードを選んでください';
   if (phase === 'vote') return '怪しい砲台に投票してください';
   if (phase === 'branch') return '作戦を投票してください';
   return '結果を確認してください';
 }
 
-function phaseInputLabel(phase: string): string {
+function phaseInputLabel(phase: string, mode: GameMode): string {
   if (phase === 'action') return '行動入力';
+  if (mode === 'party' && phase === 'vote') return '予想入力';
   if (phase === 'plea') return '弁明入力';
   if (phase === 'vote') return '投票入力';
   if (phase === 'branch') return '作戦投票';

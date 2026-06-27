@@ -1,0 +1,39 @@
+# Phase 2: Party Mode 追加タスク
+
+## 1. 目的
+
+Phase 1完了後、標準入口としてParty Modeを追加する。
+
+既存の推理寄り実装は削除せず、Advanced Modeとして扱う。
+
+## 2. 実装タスク
+
+- [x] 現在のPhase 1実装をコミットする
+- [x] GameModeを追加する
+- [x] Advanced Modeとして既存Phase 1挙動を残す
+- [x] Party Mode用の砲台行動3種を追加する
+- [x] Party Mode用のスパイ行動3種を追加する
+- [x] BossDefinitionを追加する
+- [x] 初期ボス `prototype_gigant` を追加する
+- [x] ボス行動4種を追加する
+- [x] Party Mode用CPU自動進行を追加する
+- [x] Party Mode用シミュレーションコマンドを追加する
+- [ ] 人間プレイテストで1ゲーム5から8分の手触りを確認する
+
+## 3. 確認コマンド
+
+```bash
+npm test
+npm run typecheck
+npm run build
+npm run sim -- --games 100
+npm run sim:party -- --games 100
+```
+
+## 4. 完了目安
+
+- Party Modeで1PC上のCPU補充ゲームが最後まで進む
+- Advanced Modeの既存テストが壊れていない
+- Party Modeの砲台勝率が55から70%程度に入る
+- Party ModeのpublicLogが1ラウンド3から4行程度に収まる
+- スパイ当て投票が勝敗ではなくボーナス扱いになっている

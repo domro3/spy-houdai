@@ -3,20 +3,31 @@ import {
   ACTION_LABELS,
   BALANCE_BY_PLAYER_COUNT,
   BOSS_BALANCE,
+  BOSS_DEFINITIONS,
   BRANCH_EFFECTS,
   CPU_PROFILES,
+  DEFAULT_BOSS_ID,
   GUNNER_ACTIONS,
   PLAYER_LIMITS,
   PLAYER_NAMES,
+  PARTY_ACTION_BALANCE,
+  PARTY_ACTION_LABELS,
+  PARTY_BOSS_ACTION_BALANCE,
+  PARTY_GUNNER_ACTIONS,
+  PARTY_RULES,
+  PARTY_SPY_ACTIONS,
   SPY_ACTIONS,
 } from '../data/constants';
 import { createInferenceHints } from './inference';
 import { changeSuspicion } from './suspicion';
-import { clamp, SeededRandom, shuffle } from './random';
+import { clamp, SeededRandom, shuffle, weightedChoice } from './random';
 import type {
   ActionSubmission,
   ActionType,
   Award,
+  BossActionPlan,
+  BossActionType,
+  BossDefinition,
   BranchCondition,
   BranchPlan,
   BranchVoteSubmission,
@@ -57,7 +68,7 @@ export class GameEngine {
   submitAction(submission: ActionSubmission): void {
     this.assertPhase('action');
     const player = this.getPlayer(submission.playerId);
-    const allowedActions = player.role === 'spy' ? SPY_ACTIONS : GUNNER_ACTIONS;
+    const allowedActions = this.availableActions(player.id);
     if (!allowedActions.includes(submission.type)) {
       throw new Error(`${player.name} cannot use ${submission.type}`);
     }
@@ -78,6 +89,9 @@ export class GameEngine {
 
   useSuspiciousCoin(playerId: string): SuspiciousCoinEvent {
     this.assertPhase('vote');
+    if (this.state.mode === 'party') {
+      throw new Error('Suspicious coin is only available in Advanced Mode');
+    }
     const player = this.getPlayer(playerId);
     if (player.role !== 'spy') {
       throw new Error('Only the spy can use the suspicious coin');
@@ -137,6 +151,9 @@ export class GameEngine {
     const missing = this.state.players.filter((player) => !this.state.submittedActions[player.id]);
     if (missing.length > 0) {
       throw new Error(`Missing actions: ${missing.map((player) => player.name).join(', ')}`);
+    }
+    if (this.state.mode === 'party') {
+      return this.resolvePartyActions();
     }
 
     const summary: RoundSummary = {
@@ -266,6 +283,10 @@ export class GameEngine {
     if (missing.length > 0) {
       throw new Error(`Missing votes: ${missing.map((player) => player.name).join(', ')}`);
     }
+    if (this.state.mode === 'party') {
+      this.resolvePartyVotes();
+      return;
+    }
 
     const voteCounts: Record<string, number> = {};
     const spy = this.spy();
@@ -346,6 +367,9 @@ export class GameEngine {
 
   availableActions(playerId: string): ActionType[] {
     const player = this.getPlayer(playerId);
+    if (this.state.mode === 'party') {
+      return player.role === 'spy' ? PARTY_SPY_ACTIONS : PARTY_GUNNER_ACTIONS;
+    }
     return player.role === 'spy' ? SPY_ACTIONS : GUNNER_ACTIONS;
   }
 
@@ -385,7 +409,15 @@ export class GameEngine {
       throw new Error('humanPlayers must be between 0 and totalPlayers');
     }
 
+    const mode = options.mode ?? 'advanced';
     const balance = BALANCE_BY_PLAYER_COUNT[options.totalPlayers];
+    const boss = this.bossDefinition(options.bossId);
+    const playerCount = options.totalPlayers as 4 | 5 | 6;
+    const bossMaxHp = mode === 'party'
+      ? boss.maxHpByPlayerCount[playerCount]
+      : balance.bossHp;
+    const baseMaxHp = mode === 'party' ? PARTY_RULES.baseHp : balance.baseHp;
+    const maxRounds = mode === 'party' ? PARTY_RULES.rounds : balance.rounds;
     const ids = Array.from({ length: options.totalPlayers }, (_, index) => `p${index + 1}`);
     const spyId = options.spyId ?? shuffle(ids, this.rng)[0];
 
@@ -402,22 +434,33 @@ export class GameEngine {
       coinResult: 'unused',
       stats: createStats(),
     }));
+    const currentBossAction = mode === 'party'
+      ? this.selectBossActionPlan(boss, players)
+      : { type: 'normal_attack' as const };
 
     return {
+      mode,
       phase: 'action',
       round: 1,
-      maxRounds: balance.rounds,
+      maxRounds,
       players,
-      bossHp: balance.bossHp,
-      bossMaxHp: balance.bossHp,
-      baseHp: balance.baseHp,
-      baseMaxHp: balance.baseHp,
+      boss,
+      currentBossAction,
+      bossHp: bossMaxHp,
+      bossMaxHp,
+      baseHp: baseMaxHp,
+      baseMaxHp,
       submittedActions: {},
       pleas: {},
       votes: {},
       branchVotes: {},
       roundLogs: [],
-      publicLogs: ['ボス出現。全砲台、起動してください。'],
+      publicLogs: mode === 'party'
+        ? [
+          `${boss.name}出現。全砲台、起動してください。`,
+          this.partyBossForecastLog(currentBossAction, players),
+        ]
+        : ['ボス出現。全砲台、起動してください。'],
       privateLogs: Object.fromEntries(players.map((player) => [player.id, []])),
       debugLogs: [],
       inferenceHints: [],
@@ -427,6 +470,268 @@ export class GameEngine {
       },
       history: [],
     };
+  }
+
+  private bossDefinition(bossId = DEFAULT_BOSS_ID): BossDefinition {
+    const boss = BOSS_DEFINITIONS[bossId];
+    if (!boss) {
+      throw new Error(`Unknown boss definition: ${bossId}`);
+    }
+    return boss;
+  }
+
+  private selectBossActionPlan(boss: BossDefinition, players: Player[]): BossActionPlan {
+    const type = weightedChoice(
+      Object.entries(boss.actionWeights).map(([value, weight]) => ({
+        value: value as BossActionType,
+        weight: weight ?? 0,
+      })),
+      this.rng,
+    );
+    if (type !== 'target_lock') {
+      return { type };
+    }
+    return {
+      type,
+      targetPlayerId: players[Math.floor(this.rng.next() * players.length)]?.id,
+    };
+  }
+
+  private resolvePartyActions(): RoundSummary {
+    const summary: RoundSummary = {
+      round: this.state.round,
+      bossAction: this.state.currentBossAction,
+      totalDamage: 0,
+      bossHealing: 0,
+      baseDamage: 0,
+      repairs: 0,
+      defenseCount: 0,
+      sabotageCount: 0,
+      scrambleLog: false,
+      scans: [],
+      votes: {},
+      publicLogs: [],
+      evidence: [],
+    };
+    this.state.history.push(summary);
+    this.state.debugLogs.push(
+      `[debug] party round ${this.state.round} boss action: ${this.state.currentBossAction.type}`
+      + `${this.state.currentBossAction.targetPlayerId ? `->${this.state.currentBossAction.targetPlayerId}` : ''}`,
+    );
+    this.state.debugLogs.push(
+      `[debug] round ${this.state.round} submitted actions: ${Object.values(this.state.submittedActions)
+        .map((action) => `${action.playerId}:${action.type}${action.targetId ? `->${action.targetId}` : ''}`)
+        .join(', ')}`,
+    );
+
+    const sabotagedTargets = this.collectSabotageTargets(summary);
+    const defenders: string[] = [];
+    let pendingBossDamage = 0;
+    let pendingBossHealing = 0;
+
+    for (const action of Object.values(this.state.submittedActions)) {
+      const player = this.getPlayer(action.playerId);
+      player.lastAction = action.type;
+      const sabotaged = sabotagedTargets.has(player.id);
+
+      switch (action.type) {
+        case 'normal_attack': {
+          const damage = this.partyActionValue(PARTY_ACTION_BALANCE.attackDamage, sabotaged);
+          pendingBossDamage += damage;
+          player.stats.damage += damage;
+          summary.totalDamage += damage;
+          break;
+        }
+        case 'fake_attack': {
+          const damage = this.partyActionValue(PARTY_ACTION_BALANCE.weakAttackDamage, sabotaged);
+          pendingBossDamage += damage;
+          player.stats.damage += damage;
+          summary.totalDamage += damage;
+          break;
+        }
+        case 'defend':
+          defenders.push(player.id);
+          summary.defenseCount += 1;
+          break;
+        case 'repair': {
+          const amount = sabotaged
+            ? PARTY_ACTION_BALANCE.sabotagedRepairAmount
+            : PARTY_ACTION_BALANCE.repairAmount;
+          const healed = this.healBase(amount);
+          player.stats.healing += healed;
+          summary.repairs += healed;
+          break;
+        }
+        case 'boss_heal': {
+          pendingBossHealing += PARTY_ACTION_BALANCE.spyBossHealAmount;
+          player.stats.bossHealing += PARTY_ACTION_BALANCE.spyBossHealAmount;
+          break;
+        }
+        case 'sabotage':
+          break;
+        case 'charge_attack':
+        case 'scan':
+        case 'scramble_log':
+          throw new Error(`${action.type} is not available in Party Mode`);
+        default:
+          assertNever(action.type);
+      }
+
+      if (!player.isConnected) {
+        player.stats.robotContribution += estimateRobotContribution(action.type);
+      }
+    }
+
+    const beforeBossHp = this.state.bossHp;
+    this.state.bossHp = clamp(
+      this.state.bossHp - pendingBossDamage + pendingBossHealing,
+      0,
+      this.state.bossMaxHp,
+    );
+    summary.bossHealing += Math.max(0, this.state.bossHp - Math.max(0, beforeBossHp - pendingBossDamage));
+
+    const bossEventLog = this.state.bossHp <= 0
+      ? 'ボスを撃破！砲台の勝ちどきが響きました。'
+      : this.resolvePartyBossAction(summary, defenders, sabotagedTargets);
+    this.writePartyRoundLogs(summary, bossEventLog);
+
+    if (this.shouldFinish()) {
+      this.state.phase = 'vote';
+      this.state.publicLogs.push('ボス戦終了。最後にスパイ予想を投票してください。');
+      return summary;
+    }
+
+    this.advanceRound();
+    return summary;
+  }
+
+  private resolvePartyBossAction(
+    summary: RoundSummary,
+    defenders: string[],
+    sabotagedTargets: Set<string>,
+  ): string {
+    const action = this.state.currentBossAction;
+    switch (action.type) {
+      case 'normal_attack': {
+        const damage = this.damageBase(PARTY_BOSS_ACTION_BALANCE.normalAttackDamage);
+        summary.baseDamage += damage;
+        return `ボスの通常攻撃！拠点に${damage}ダメージ。`;
+      }
+      case 'big_charge': {
+        const guarded = defenders.length > 0;
+        const noisyGuard = guarded && defenders.every((id) => sabotagedTargets.has(id));
+        const damage = this.damageBase(
+          guarded
+            ? noisyGuard
+              ? PARTY_BOSS_ACTION_BALANCE.bigChargeNoisyGuardDamage
+              : PARTY_BOSS_ACTION_BALANCE.bigChargeGuardedDamage
+            : PARTY_BOSS_ACTION_BALANCE.bigChargeDamage,
+        );
+        summary.baseDamage += damage;
+        this.addMitigationStats(defenders, PARTY_BOSS_ACTION_BALANCE.bigChargeDamage - damage);
+        if (!guarded) return `大技が直撃！拠点に${damage}ダメージ。`;
+        if (noisyGuard) return `バリアにノイズ発生！大技を少しだけ軽減しました。`;
+        return 'バリア成功！大技ダメージを半分にしました。';
+      }
+      case 'armor_regen': {
+        const playerCount = this.state.players.length as 4 | 5 | 6;
+        const threshold = PARTY_BOSS_ACTION_BALANCE.armorRegenBlockThresholdByPlayerCount[playerCount];
+        if (summary.totalDamage >= threshold) {
+          return '集中砲火成功！装甲再生を止めました。';
+        }
+        const healed = this.healBoss(PARTY_BOSS_ACTION_BALANCE.armorRegenHeal);
+        summary.bossHealing += healed;
+        return healed > 0
+          ? `火力不足！ボスの装甲が${healed}回復。`
+          : '火力不足！しかしボスの装甲は限界でした。';
+      }
+      case 'target_lock': {
+        const target = action.targetPlayerId ? this.getPlayer(action.targetPlayerId) : undefined;
+        const targetGuarded = target ? defenders.includes(target.id) : false;
+        const noisyGuard = Boolean(target && targetGuarded && sabotagedTargets.has(target.id));
+        const damage = this.damageBase(
+          targetGuarded
+            ? noisyGuard
+              ? PARTY_BOSS_ACTION_BALANCE.targetLockNoisyGuardDamage
+              : PARTY_BOSS_ACTION_BALANCE.targetLockGuardedDamage
+            : PARTY_BOSS_ACTION_BALANCE.targetLockDamage,
+        );
+        summary.baseDamage += damage;
+        this.addMitigationStats(targetGuarded && target ? [target.id] : [], PARTY_BOSS_ACTION_BALANCE.targetLockDamage - damage);
+        if (!target) return `狙い撃ち！拠点に${damage}ダメージ。`;
+        if (!targetGuarded) return `${target.name}周辺に直撃！拠点に${damage}ダメージ。`;
+        if (noisyGuard) return `${target.name}のバリアにノイズ！被害を少し軽減しました。`;
+        return `${target.name}が回避バリア！ダメージを大きく軽減しました。`;
+      }
+      default:
+        return assertNever(action.type);
+    }
+  }
+
+  private resolvePartyVotes(): void {
+    const voteCounts: Record<string, number> = {};
+    for (const vote of Object.values(this.state.votes)) {
+      this.getPlayer(vote.voterId);
+      const target = this.getPlayer(vote.targetId);
+      voteCounts[target.id] = (voteCounts[target.id] ?? 0) + 1;
+    }
+    const topTargetId = Object.entries(voteCounts)
+      .sort((a, b) => b[1] - a[1])[0]?.[0];
+    const summary = this.currentSummary();
+    summary.votes = voteCounts;
+    this.state.publicLogs.push(
+      `おまけ投票: ${Object.entries(voteCounts)
+        .map(([playerId, count]) => `${this.getPlayer(playerId).name} ${count}票`)
+        .join(' / ')}`,
+    );
+    this.finishGame(topTargetId);
+  }
+
+  private partyActionValue(baseValue: number, sabotaged: boolean): number {
+    return Math.round(baseValue * (sabotaged ? PARTY_ACTION_BALANCE.sabotageMultiplier : 1));
+  }
+
+  private damageBase(amount: number): number {
+    const before = this.state.baseHp;
+    this.state.baseHp = clamp(this.state.baseHp - amount, 0, this.state.baseMaxHp);
+    return before - this.state.baseHp;
+  }
+
+  private addMitigationStats(defenderIds: string[], mitigated: number): void {
+    if (defenderIds.length === 0 || mitigated <= 0) return;
+    const perDefender = Math.max(1, Math.round(mitigated / defenderIds.length));
+    for (const defenderId of defenderIds) {
+      this.getPlayer(defenderId).stats.mitigated += perDefender;
+    }
+  }
+
+  private writePartyRoundLogs(summary: RoundSummary, bossEventLog: string): void {
+    const netDamage = Math.max(0, summary.totalDamage - summary.bossHealing);
+    const attackLog = netDamage >= 180
+      ? `ボスに大ダメージ！実質${netDamage}ダメージ。`
+      : netDamage > 0
+        ? `ボスに${netDamage}ダメージ。`
+        : 'ボスへの有効打は少なめでした。';
+    const repairLog = summary.repairs > 0
+      ? `拠点を${summary.repairs}修理。残り耐久${this.state.baseHp}。`
+      : `拠点耐久は残り${this.state.baseHp}。`;
+    const logs = [
+      `第${summary.round}ラウンド: ${bossActionLabel(this.state.currentBossAction.type)}。`,
+      attackLog,
+      bossEventLog,
+      repairLog,
+    ];
+    summary.publicLogs = logs;
+    this.state.roundLogs = logs;
+    this.state.publicLogs.push(...logs);
+  }
+
+  private partyBossForecastLog(plan: BossActionPlan, players = this.state.players): string {
+    if (plan.type === 'target_lock' && plan.targetPlayerId) {
+      const target = players.find((player) => player.id === plan.targetPlayerId);
+      return `ボス予告: ${target?.name ?? 'どこかの砲台'}を狙っています。`;
+    }
+    return `ボス予告: ${bossForecastLabel(plan.type)}`;
   }
 
   private collectSabotageTargets(summary: RoundSummary): Set<string> {
@@ -704,6 +1009,10 @@ export class GameEngine {
     });
     this.state.phase = 'action';
     this.state.publicLogs.push(`ROUND ${this.state.round} 開始。`);
+    if (this.state.mode === 'party') {
+      this.state.currentBossAction = this.selectBossActionPlan(this.state.boss, this.state.players);
+      this.state.publicLogs.push(this.partyBossForecastLog(this.state.currentBossAction));
+    }
   }
 
   private shouldFinish(): boolean {
@@ -714,7 +1023,7 @@ export class GameEngine {
     const bossDefeated = this.state.bossHp <= 0;
     const baseDestroyed = this.state.baseHp <= 0;
     const spy = this.spy();
-    const spyBehindWin = bossDefeated && finalVoteTargetId !== spy.id;
+    const spyBehindWin = this.state.mode === 'advanced' && bossDefeated && finalVoteTargetId !== spy.id;
     const winner = bossDefeated && !baseDestroyed && !spyBehindWin ? 'gunners' : 'spy';
     const history = this.state.history;
     const result: GameResult = {
@@ -725,7 +1034,11 @@ export class GameEngine {
       spyId: spy.id,
       finalVoteTargetId,
       sabotageCount: history.reduce((sum, round) => sum + round.sabotageCount, 0),
-      bossHealingCount: spy.stats.bossHealing > 0 ? history.filter((round) => round.bossHealing > 0).length : 0,
+      bossHealingCount: this.state.mode === 'party'
+        ? history.filter((round) => round.bossHealing > 0).length
+        : spy.stats.bossHealing > 0
+          ? history.filter((round) => round.bossHealing > 0).length
+          : 0,
       logScrambleCount: history.filter((round) => round.scrambleLog).length,
       suspiciousCoin: history.find((round) => round.suspiciousCoin)?.suspiciousCoin,
       awards: [],
@@ -741,10 +1054,21 @@ export class GameEngine {
     if (result.spyBehindWin) {
       this.state.publicLogs.push('ただし、最終投票でスパイを当てられず、スパイ裏勝利が発生しました。');
     }
+    if (this.state.mode === 'party' && result.finalVoteTargetId) {
+      this.state.publicLogs.push(
+        result.finalVoteTargetId === spy.id
+          ? 'おまけ投票成功。砲台チームに名探偵砲台ボーナスです。'
+          : 'おまけ投票失敗。スパイに潜伏成功称号です。',
+      );
+    }
     this.state.publicLogs.push(`今回のスパイは ${spy.name} でした。`);
   }
 
   private createAwards(result: GameResult): Award[] {
+    if (this.state.mode === 'party') {
+      return this.createPartyAwards(result);
+    }
+
     const awards: Award[] = [];
     const byStat = (stat: keyof PlayerStats) =>
       [...this.state.players].sort((a, b) => b.stats[stat] - a.stats[stat])[0];
@@ -807,6 +1131,39 @@ export class GameEngine {
     return awards;
   }
 
+  private createPartyAwards(result: GameResult): Award[] {
+    const awards: Award[] = [];
+    const byStat = (stat: keyof PlayerStats) =>
+      [...this.state.players].sort((a, b) => b.stats[stat] - a.stats[stat])[0];
+    const spy = this.spy();
+
+    awards.push({
+      title: 'MVP',
+      playerId: byStat('damage').id,
+      reason: 'ボスへの砲撃ダメージが最大でした',
+    });
+    awards.push({
+      title: '守護砲台',
+      playerId: byStat('mitigated').id,
+      reason: 'ボス攻撃の軽減に貢献しました',
+    });
+    awards.push({
+      title: '整備名人',
+      playerId: byStat('healing').id,
+      reason: '拠点修理量が最大でした',
+    });
+    awards.push({
+      title: result.finalVoteTargetId === spy.id ? '名探偵砲台' : '潜伏成功',
+      playerId: result.finalVoteTargetId === spy.id
+        ? (this.state.players.find((player) => player.role === 'gunner')?.id ?? spy.id)
+        : spy.id,
+      reason: result.finalVoteTargetId === spy.id
+        ? 'おまけ投票でスパイを当てました'
+        : 'おまけ投票をかわしました',
+    });
+    return awards;
+  }
+
   private assertPhase(phase: GameState['phase']): void {
     if (this.state.phase !== phase) {
       throw new Error(`Expected phase ${phase}, got ${this.state.phase}`);
@@ -818,8 +1175,27 @@ export function requiresTarget(type: ActionType): boolean {
   return type === 'scan' || type === 'sabotage';
 }
 
-export function actionLabel(type: ActionType): string {
+export function actionLabel(type: ActionType, mode: GameState['mode'] = 'advanced'): string {
+  if (mode === 'party' && PARTY_ACTION_LABELS[type]) {
+    return PARTY_ACTION_LABELS[type];
+  }
   return ACTION_LABELS[type];
+}
+
+export function bossActionLabel(type: BossActionType): string {
+  if (type === 'normal_attack') return '通常攻撃';
+  if (type === 'big_charge') return '大技チャージ';
+  if (type === 'armor_regen') return '装甲再生';
+  if (type === 'target_lock') return '狙い撃ち';
+  return assertNever(type);
+}
+
+export function bossForecastLabel(type: BossActionType): string {
+  if (type === 'normal_attack') return 'ボスの通常攻撃が来ます。';
+  if (type === 'big_charge') return 'ボスが大技を準備しています。';
+  if (type === 'armor_regen') return 'ボスの装甲が再生しはじめています。';
+  if (type === 'target_lock') return 'ボスが狙い撃ちの対象を探しています。';
+  return assertNever(type);
 }
 
 export function scanResultLabel(result: ScanReport['result']): string {

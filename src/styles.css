@@ -308,6 +308,33 @@ dt {
   gap: 7px;
 }
 
+.party-status-list {
+  display: grid;
+  gap: 8px;
+}
+
+.party-status-list div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  min-height: 42px;
+  padding: 9px 11px;
+  border-radius: 7px;
+  background: #fffefa;
+  border: 1px solid rgb(35 39 47 / 10%);
+}
+
+.party-status-list span {
+  color: #68717f;
+  font-size: 0.74rem;
+  font-weight: 900;
+}
+
+.party-status-list strong {
+  text-align: right;
+}
+
 .suspicion-row {
   display: grid;
   grid-template-columns: minmax(72px, 1fr) minmax(52px, auto) 28px;

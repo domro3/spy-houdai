@@ -11,8 +11,10 @@
 
 > 全員砲台、1人だけスパイ。
 
-プレイヤーはラウンドごとに行動を選び、ボスを攻撃・防御・修理・スキャンしながら、ログや投票からスパイを推理します。  
-スパイは味方のふりをしながら、ボス回復、妨害、ログ撹乱、怪しいコインなどで作戦を妨害します。
+標準入口のParty Modeでは、プレイヤーはラウンドごとに「撃つ・守る・直す」を選び、ボス予告に合わせて巨大ボスと戦います。
+スパイは味方のふりをしながら、「弱く撃つ・邪魔する・ボスを助ける」で場を揺らします。
+
+既存Phase 1のスキャン、監視対象ログ、怪しいコイン、最終推理ヒントなどの推理寄り要素はAdvanced Modeとして残します。
 
 ## 現時点の開発方針
 
@@ -22,10 +24,11 @@
 
 1. **1PC完結プロトタイプ**
 2. **権利リスクレビュー**
-3. **中央画面＋プレイヤー画面分離**
-4. **CPU補充・1人練習モード**
-5. **ローカルネットワーク対応**
-6. **オンライン対応**
+3. **Party Mode標準入口化**
+4. **中央画面＋プレイヤー画面分離**
+5. **CPU補充・1人練習モード**
+6. **ローカルネットワーク対応**
+7. **オンライン対応**
 
 最初のCodex依頼では、**1PC完結のMVPプロトタイプ**を作成します。
 
@@ -43,9 +46,11 @@ spy-houdai-specs/
     05_screen_design.md
     06_architecture.md
     07_rights_policy.md
+    08_party_mode.md
   tasks/
     phase1_local_prototype_tasks.md
     phase1_5_rights_review_tasks.md
+    phase2_party_mode_tasks.md
   prompts/
     codex_initial_prompt.md
     codex_followup_prompt.md
@@ -73,6 +78,16 @@ spy-houdai-specs/
 - ラウンド3中間作戦分岐
 - 切断時の砲台ロボ引き継ぎ
 - 結果発表・称号表示
+
+## Phase 2 Party Modeで追加すること
+
+- Party Mode / Advanced Modeのモード分離
+- Party Mode用の3行動
+- ボス行動4種
+- BossDefinitionによる拡張可能なボス定義
+- 初期ボス `prototype_gigant`
+- Party Mode用CPUシミュレーション
+- `npm run sim:party`
 
 ## 最初の実装でやらないこと
 

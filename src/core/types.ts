@@ -1,5 +1,7 @@
 export type Role = 'gunner' | 'spy';
 
+export type GameMode = 'party' | 'advanced';
+
 export type ActionType =
   | 'normal_attack'
   | 'charge_attack'
@@ -19,6 +21,26 @@ export type CpuProfile =
   | 'follower';
 
 export type GamePhase = 'action' | 'plea' | 'vote' | 'branch' | 'finished';
+
+export type BossActionType =
+  | 'normal_attack'
+  | 'big_charge'
+  | 'armor_regen'
+  | 'target_lock';
+
+export interface BossDefinition {
+  id: string;
+  name: string;
+  description: string;
+  maxHpByPlayerCount: Record<4 | 5 | 6, number>;
+  actionWeights: Partial<Record<BossActionType, number>>;
+  specialRules?: string[];
+}
+
+export interface BossActionPlan {
+  type: BossActionType;
+  targetPlayerId?: string;
+}
 
 export type BranchCondition = 'smooth' | 'normal' | 'hard';
 
@@ -109,6 +131,7 @@ export interface SuspiciousCoinEvent {
 
 export interface RoundSummary {
   round: number;
+  bossAction?: BossActionPlan;
   totalDamage: number;
   bossHealing: number;
   baseDamage: number;
@@ -153,10 +176,13 @@ export interface BranchState {
 }
 
 export interface GameState {
+  mode: GameMode;
   phase: GamePhase;
   round: number;
   maxRounds: number;
   players: Player[];
+  boss: BossDefinition;
+  currentBossAction: BossActionPlan;
   bossHp: number;
   bossMaxHp: number;
   baseHp: number;
@@ -181,6 +207,8 @@ export interface GameSetupOptions {
   humanPlayers: number;
   seed?: number;
   spyId?: string;
+  mode?: GameMode;
+  bossId?: string;
 }
 
 export interface RandomSource {
