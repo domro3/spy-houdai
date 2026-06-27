@@ -1,0 +1,19 @@
+{
+  "project": "スパイ砲台",
+  "version": "specs-v0.2",
+  "created_for": "Codex / Claude Code implementation handoff",
+  "phase": "Phase 1: 1PC完結プロトタイプ",
+  "files": [
+    "README.md",
+    "docs/00_project_brief.md",
+    "docs/01_mvp_spec.md",
+    "docs/02_game_rules.md",
+    "docs/03_balance_table.md",
+    "docs/04_cpu_design.md",
+    "docs/05_screen_design.md",
+    "docs/06_architecture.md",
+    "prompts/codex_followup_prompt.md",
+    "prompts/codex_initial_prompt.md",
+    "tasks/phase1_local_prototype_tasks.md"
+  ]
+}
