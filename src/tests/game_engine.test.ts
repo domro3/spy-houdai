@@ -153,6 +153,11 @@ describe('CPU simulation', () => {
     expect(summary.gunnerWins + summary.spyWins).toBe(10);
     expect(summary.gunnerWinRate).toBeGreaterThanOrEqual(0);
     expect(summary.gunnerWinRate).toBeLessThanOrEqual(1);
+    expect(summary.finalVoteHitSpyCount).toBeGreaterThanOrEqual(0);
+    expect(summary.spyBehindWinRate).toBeGreaterThanOrEqual(0);
+    expect(summary.spyBehindWinRate).toBeLessThanOrEqual(1);
+    expect(summary.topSuspicionSpyRate).toBeGreaterThanOrEqual(0);
+    expect(summary.topSuspicionSpyRate).toBeLessThanOrEqual(1);
     expect(summary.averageRounds).toBeGreaterThan(0);
     expect(summary.averageRounds).toBeLessThanOrEqual(5);
   });
@@ -187,6 +192,55 @@ describe('log separation', () => {
     expect(engine.state.privateLogs.p3.join('\n')).not.toContain('スキャン結果');
     expect(engine.state.privateLogs.p4.join('\n')).not.toContain('スキャン結果');
     expect(engine.state.publicLogs.join('\n')).not.toContain('スキャン結果');
+  });
+});
+
+describe('inference support', () => {
+  it('uses clearer three-step scan labels', () => {
+    const engine = new GameEngine(
+      { totalPlayers: 4, humanPlayers: 0, seed: 48, spyId: 'p4' },
+      fixedRandom(0.1),
+    );
+    submitOneActionRound(engine, 'scan');
+    const summary = engine.resolveActions();
+
+    expect(summary.scans[0].result).toBe('strong_signal');
+    expect(engine.state.privateLogs.p1.join('\n')).toContain('強い異常反応');
+  });
+
+  it('adds a public monitored hint without exceeding round log size', () => {
+    const engine = new GameEngine({ totalPlayers: 4, humanPlayers: 0, seed: 49, spyId: 'p4' });
+    engine.state.monitoredPlayerId = 'p4';
+    engine.state.bossHp = 300;
+    for (const player of engine.state.players) {
+      engine.submitAction({
+        playerId: player.id,
+        type: player.id === 'p4' ? 'boss_heal' : 'defend',
+      });
+    }
+
+    const summary = engine.resolveActions();
+    expect(summary.publicLogs).toHaveLength(5);
+    expect(summary.publicLogs.join('\n')).toContain('監視対象ログ');
+    expect(summary.publicLogs.join('\n')).not.toContain('スパイ');
+    expect(summary.evidence.some((event) => event.playerId === 'p4' && event.kind === 'monitored_noise')).toBe(true);
+  });
+
+  it('prepares final inference hints before the final vote', () => {
+    const engine = new GameEngine({ totalPlayers: 4, humanPlayers: 0, seed: 50, spyId: 'p4' });
+    engine.state.bossHp = 0;
+    for (const player of engine.state.players) {
+      engine.submitAction({ playerId: player.id, type: 'defend' });
+    }
+    engine.resolveActions();
+    for (const player of engine.state.players) {
+      engine.submitPlea(player.id, '防御しました');
+    }
+    engine.resolvePleas();
+
+    expect(engine.state.phase).toBe('vote');
+    expect(engine.state.inferenceHints).toHaveLength(3);
+    expect(engine.state.publicLogs.join('\n')).toContain('最終推理ヒント');
   });
 });
 
@@ -252,6 +306,7 @@ function emptySummary(round: number): RoundSummary {
     scans: [],
     votes: {},
     publicLogs: [],
+    evidence: [],
   };
 }
 

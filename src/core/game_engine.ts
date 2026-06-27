@@ -10,6 +10,7 @@ import {
   PLAYER_NAMES,
   SPY_ACTIONS,
 } from '../data/constants';
+import { createInferenceHints } from './inference';
 import { changeSuspicion } from './suspicion';
 import { clamp, SeededRandom, shuffle } from './random';
 import type {
@@ -27,6 +28,7 @@ import type {
   RandomSource,
   RoundSummary,
   ScanReport,
+  ScanResult,
   SuspiciousCoinEvent,
   VoteSubmission,
 } from './types';
@@ -149,6 +151,7 @@ export class GameEngine {
       scans: [],
       votes: {},
       publicLogs: [],
+      evidence: [],
     };
     this.state.history.push(summary);
     this.state.debugLogs.push(
@@ -233,6 +236,7 @@ export class GameEngine {
       }
     }
 
+    this.addMonitoredEvidence(summary);
     this.writeRoundLogs(summary);
     this.state.phase = 'plea';
     return summary;
@@ -253,6 +257,7 @@ export class GameEngine {
       `弁明: ${this.state.players.map((player) => `${player.name}「${this.state.pleas[player.id]}」`).join(' / ')}`,
     );
     this.state.phase = 'vote';
+    this.prepareInferenceHintsIfFinalVote();
   }
 
   resolveVotes(): void {
@@ -415,6 +420,7 @@ export class GameEngine {
       publicLogs: ['ボス出現。全砲台、起動してください。'],
       privateLogs: Object.fromEntries(players.map((player) => [player.id, []])),
       debugLogs: [],
+      inferenceHints: [],
       branchState: {
         plan: 'normal',
         resolved: false,
@@ -490,18 +496,20 @@ export class GameEngine {
     }
     const target = this.getPlayer(targetId);
     const roll = this.rng.next();
-    let result: ScanReport['result'];
+    let result: ScanResult;
     if (sabotaged) {
       result = 'unstable';
     } else if (target.role === 'spy') {
-      result = roll < 0.45 ? 'weak_signal' : roll < 0.75 ? 'missing_log' : 'clear';
+      result = roll < 0.35 ? 'strong_signal' : roll < 0.82 ? 'weak_noise' : 'clear';
     } else {
-      result = roll < 0.7 ? 'clear' : roll < 0.9 ? 'weak_signal' : 'contradiction_possible';
+      result = roll < 0.78 ? 'clear' : roll < 0.95 ? 'weak_noise' : 'strong_signal';
     }
 
     if (result === 'clear') changeSuspicion(target, -1);
-    if (result === 'weak_signal') changeSuspicion(target, 1);
-    if (result === 'missing_log' || result === 'contradiction_possible') changeSuspicion(target, 2);
+    if (result === 'weak_noise') changeSuspicion(target, 1);
+    if (result === 'strong_signal') changeSuspicion(target, 3);
+
+    this.addScanEvidence(this.currentSummary(), target.id, result);
 
     this.state.privateLogs[player.id].push(`${target.name}のスキャン結果: ${scanResultLabel(result)}`);
     return { scannerId: player.id, targetId, result };
@@ -530,7 +538,108 @@ export class GameEngine {
     return this.state.bossHp - before;
   }
 
+  private addMonitoredEvidence(summary: RoundSummary): void {
+    const monitoredId = this.state.monitoredPlayerId;
+    if (!monitoredId) return;
+    const action = this.state.submittedActions[monitoredId];
+    if (!action) return;
+    const monitored = this.getPlayer(monitoredId);
+
+    if (action.type === 'boss_heal') {
+      summary.monitoredHint = '監視対象ログ: 監視中の砲台周辺で、ボス反応と同期する強い異常反応。';
+      summary.evidence.push({
+        playerId: monitoredId,
+        round: summary.round,
+        kind: 'monitored_noise',
+        weight: 4,
+        reason: 'ボス回復ラウンドで監視対象周辺に強い異常反応',
+      });
+      return;
+    }
+
+    if (action.type === 'sabotage') {
+      summary.monitoredHint = '監視対象ログ: 監視中の砲台付近から、外部ノイズに近い反応。';
+      summary.evidence.push({
+        playerId: monitoredId,
+        round: summary.round,
+        kind: 'monitored_noise',
+        weight: 3,
+        reason: '妨害発生ラウンドで監視対象付近に外部ノイズ',
+      });
+      return;
+    }
+
+    if (action.type === 'fake_attack') {
+      summary.monitoredHint = '監視対象ログ: 監視中の砲台の出力が、攻撃ログと少しズレています。';
+      summary.evidence.push({
+        playerId: monitoredId,
+        round: summary.round,
+        kind: 'monitored_mismatch',
+        weight: 2,
+        reason: '攻撃宣言と火力ログにズレあり',
+      });
+      return;
+    }
+
+    if (action.type === 'scramble_log') {
+      summary.monitoredHint = '監視対象ログ: 監視中の砲台周辺で、作戦ログの欠落反応。';
+      summary.evidence.push({
+        playerId: monitoredId,
+        round: summary.round,
+        kind: 'monitored_noise',
+        weight: 3,
+        reason: '監視対象周辺で作戦ログの欠落反応',
+      });
+      return;
+    }
+
+    if (['normal_attack', 'charge_attack', 'defend', 'repair'].includes(action.type)) {
+      summary.evidence.push({
+        playerId: monitoredId,
+        round: summary.round,
+        kind: 'monitored_clear',
+        weight: -1,
+        reason: `${monitored.name}は監視中に明確な貢献ログあり`,
+      });
+    }
+  }
+
+  private addScanEvidence(summary: RoundSummary, targetId: string, result: ScanResult): void {
+    const target = this.getPlayer(targetId);
+    if (result === 'clear') {
+      summary.evidence.push({
+        playerId: targetId,
+        round: summary.round,
+        kind: 'scan_clear',
+        weight: -1,
+        reason: `${target.name}に異常なしのスキャン結果`,
+      });
+    }
+    if (result === 'weak_noise') {
+      summary.evidence.push({
+        playerId: targetId,
+        round: summary.round,
+        kind: 'scan_weak_noise',
+        weight: 2,
+        reason: `${target.name}に微弱なノイズのスキャン結果`,
+      });
+    }
+    if (result === 'strong_signal') {
+      summary.evidence.push({
+        playerId: targetId,
+        round: summary.round,
+        kind: 'scan_strong_signal',
+        weight: 4,
+        reason: `${target.name}に強い異常反応のスキャン結果`,
+      });
+    }
+  }
+
   private writeRoundLogs(summary: RoundSummary): void {
+    const anomalyLog = summary.monitoredHint
+      ?? (summary.sabotageCount > 0 || summary.scrambleLog
+        ? '異常ログ: どこかの砲台にノイズが発生。'
+        : '異常ログ: 大きな異常反応なし。');
     const logs = [
       summary.scrambleLog
         ? `第${summary.round}ラウンド結果: ボスへの損傷ログが不安定です。`
@@ -539,9 +648,7 @@ export class GameEngine {
         ? `ボス反応: ${summary.bossHealing}の謎の回復反応を検出。`
         : 'ボス反応: 回復反応なし。',
       `拠点状況: ${summary.baseDamage}ダメージ${summary.repairs > 0 ? ` / ${summary.repairs}修理` : ''}${summary.defenseCount > 0 ? ' / 防御展開' : ''}。`,
-      summary.sabotageCount > 0 || summary.scrambleLog
-        ? '異常ログ: どこかの砲台にノイズが発生。'
-        : '異常ログ: 大きな異常反応なし。',
+      anomalyLog,
       summary.scans.length > 0
         ? `スキャン: ${summary.scans.length}件実行。詳細は各パイロットの個別ログへ送信。`
         : 'スキャン: 実行なし。',
@@ -549,6 +656,15 @@ export class GameEngine {
     summary.publicLogs = logs;
     this.state.roundLogs = logs;
     this.state.publicLogs.push(...logs);
+  }
+
+  private prepareInferenceHintsIfFinalVote(): void {
+    if (!this.shouldFinish()) return;
+    this.state.inferenceHints = createInferenceHints(this.state, 3);
+    this.state.publicLogs.push('最終推理ヒント: 疑惑上位3候補を確認してください。');
+    for (const hint of this.state.inferenceHints) {
+      this.state.publicLogs.push(`${this.getPlayer(hint.playerId).name}: ${hint.reason}`);
+    }
   }
 
   private prepareBranch(): void {
@@ -709,13 +825,11 @@ export function actionLabel(type: ActionType): string {
 export function scanResultLabel(result: ScanReport['result']): string {
   switch (result) {
     case 'clear':
-      return '異常反応なし';
-    case 'weak_signal':
-      return '微弱な異常反応あり';
-    case 'missing_log':
-      return '砲台ログに不自然な欠落あり';
-    case 'contradiction_possible':
-      return '行動に矛盾の可能性あり';
+      return '異常なし';
+    case 'weak_noise':
+      return '微弱なノイズ';
+    case 'strong_signal':
+      return '強い異常反応';
     case 'unstable':
       return 'スキャン結果が不安定';
     default:

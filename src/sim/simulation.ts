@@ -12,6 +12,8 @@ export interface SimulationGameRecord {
   seed: number;
   winner: 'gunners' | 'spy';
   spyBehindWin: boolean;
+  finalVoteHitSpy: boolean;
+  topSuspicionWasSpy: boolean;
   rounds: number;
   remainingBossHp: number;
   remainingBaseHp: number;
@@ -27,6 +29,9 @@ export interface SimulationSummary {
   gunnerWins: number;
   spyWins: number;
   spyBehindWins: number;
+  spyBehindWinRate: number;
+  finalVoteHitSpyCount: number;
+  topSuspicionSpyRate: number;
   gunnerWinRate: number;
   averageRemainingBossHp: number;
   averageRemainingBaseHp: number;
@@ -61,6 +66,8 @@ export function runSimulation(options: SimulationOptions): SimulationSummary {
   const gunnerWins = records.filter((record) => record.winner === 'gunners').length;
   const spyWins = records.filter((record) => record.winner === 'spy').length;
   const spyBehindWins = records.filter((record) => record.spyBehindWin).length;
+  const finalVoteHitSpyCount = records.filter((record) => record.finalVoteHitSpy).length;
+  const topSuspicionSpyCount = records.filter((record) => record.topSuspicionWasSpy).length;
   const suspiciousCoinUses = records.filter((record) => record.suspiciousCoinUsed).length;
 
   return {
@@ -70,6 +77,9 @@ export function runSimulation(options: SimulationOptions): SimulationSummary {
     gunnerWins,
     spyWins,
     spyBehindWins,
+    spyBehindWinRate: spyBehindWins / options.games,
+    finalVoteHitSpyCount,
+    topSuspicionSpyRate: topSuspicionSpyCount / options.games,
     gunnerWinRate: gunnerWins / options.games,
     averageRemainingBossHp: average(records.map((record) => record.remainingBossHp)),
     averageRemainingBaseHp: average(records.map((record) => record.remainingBaseHp)),
@@ -90,8 +100,11 @@ export function formatSimulationSummary(summary: SimulationSummary): string {
     `Seed: ${summary.seed}`,
     `砲台チーム勝利数: ${summary.gunnerWins}`,
     `スパイ勝利数: ${summary.spyWins}`,
+    `最終投票でスパイを当てた回数: ${summary.finalVoteHitSpyCount}`,
     `スパイ裏勝利数: ${summary.spyBehindWins}`,
+    `スパイ裏勝利率: ${formatRate(summary.spyBehindWinRate)}`,
     `砲台チーム勝率: ${formatRate(summary.gunnerWinRate)}`,
+    `平均疑惑メーター上位者がスパイだった割合: ${formatRate(summary.topSuspicionSpyRate)}`,
     `平均残りボスHP: ${formatNumber(summary.averageRemainingBossHp)}`,
     `平均残り拠点耐久: ${formatNumber(summary.averageRemainingBaseHp)}`,
     `平均ラウンド数: ${formatNumber(summary.averageRounds)}`,
@@ -111,6 +124,8 @@ function createGameRecord(index: number, seed: number, state: GameState): Simula
     seed,
     winner: state.result.winner,
     spyBehindWin: state.result.spyBehindWin,
+    finalVoteHitSpy: state.result.finalVoteTargetId === state.result.spyId,
+    topSuspicionWasSpy: topSuspicionPlayerId(state) === state.result.spyId,
     rounds: state.history.length,
     remainingBossHp: state.bossHp,
     remainingBaseHp: state.baseHp,
@@ -118,6 +133,10 @@ function createGameRecord(index: number, seed: number, state: GameState): Simula
     sabotageCount: state.result.sabotageCount,
     suspiciousCoinUsed: state.history.some((round) => Boolean(round.suspiciousCoin)),
   };
+}
+
+function topSuspicionPlayerId(state: GameState): string | undefined {
+  return [...state.players].sort((a, b) => b.suspicion - a.suspicion)[0]?.id;
 }
 
 function average(values: number[]): number {

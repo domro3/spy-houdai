@@ -1,4 +1,5 @@
 import { ACTION_BALANCE, PLEA_CARDS } from '../data/constants';
+import { evidenceScoreForPlayer } from '../core/inference';
 import { weightedChoice } from '../core/random';
 import type { ActionSubmission, ActionType, BranchPlan, GameState, Player, RandomSource } from '../core/types';
 
@@ -80,7 +81,7 @@ export function chooseCpuVote(state: GameState, voter: Player, rng: RandomSource
     return decoy.player.id;
   }
 
-  if (rng.next() < 0.2 && scored[1]) {
+  if (rng.next() < 0.3 && scored[1]) {
     return scored[Math.min(scored.length - 1, 1 + Math.floor(rng.next() * 2))].player.id;
   }
   return scored[0].player.id;
@@ -241,20 +242,15 @@ function chooseTargetId(state: GameState, player: Player, type: ActionType, rng:
 }
 
 function suspicionScore(state: GameState, voter: Player, target: Player): number {
-  const wasMonitored = state.monitoredPlayerId === target.id ? 2 : 0;
-  const latestScan = [...state.history]
-    .reverse()
-    .flatMap((summary) => summary.scans)
-    .find((scan) => scan.targetId === target.id);
-  const scanScore = latestScan?.result === 'weak_signal'
-    ? 2
-    : latestScan?.result === 'missing_log' || latestScan?.result === 'contradiction_possible'
-      ? 3
-      : latestScan?.result === 'clear'
-        ? -1
-        : 0;
+  const evidenceScore = evidenceScoreForPlayer(state, target.id);
+  const recentEvidence = [...state.history]
+    .slice(-2)
+    .flatMap((summary) => summary.evidence)
+    .filter((event) => event.playerId === target.id)
+    .reduce((sum, event) => sum + event.weight, 0);
+  const finalHintBonus = state.inferenceHints.some((hint) => hint.playerId === target.id) ? 0.5 : 0;
   const spyAvoidance = voter.role === 'spy' && target.role === 'spy' ? -100 : 0;
-  return target.suspicion * 2 + wasMonitored + scanScore + spyAvoidance;
+  return target.suspicion * 1.35 + evidenceScore * 0.65 + recentEvidence * 0.7 + finalHintBonus + spyAvoidance;
 }
 
 function adjust(options: Array<{ value: ActionType; weight: number }>, value: ActionType, delta: number): void {

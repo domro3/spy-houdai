@@ -198,6 +198,9 @@ function App() {
             <ResultView engine={engine} />
           ) : (
             <div className="manual-stack">
+              {state.phase === 'vote' && state.inferenceHints.length > 0 && (
+                <InferenceHintsPanel engine={engine} />
+              )}
               {humanControlled.length === 0 ? (
                 <p className="muted">手動プレイヤーはいません。CPU入力で進行できます。</p>
               ) : (
@@ -446,6 +449,25 @@ function ResultView({ engine }: { engine: GameEngine }) {
             <span>{engine.getPlayer(award.playerId).name} - {award.reason}</span>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+function InferenceHintsPanel({ engine }: { engine: GameEngine }) {
+  return (
+    <div className="hint-panel">
+      <h3>最終推理ヒント</h3>
+      <div className="hint-list">
+        {engine.state.inferenceHints.map((hint) => {
+          const player = engine.getPlayer(hint.playerId);
+          return (
+            <div key={hint.playerId}>
+              <strong>{player.name}</strong>
+              <span>{suspicionStars(hint.suspicion)} / {hint.reason}</span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

@@ -26,6 +26,16 @@ export type BranchPlan = 'normal' | 'overdrive' | 'emergency';
 
 export type CoinResult = 'unused' | 'success' | 'failed';
 
+export type ScanResult = 'clear' | 'weak_noise' | 'strong_signal' | 'unstable';
+
+export type EvidenceKind =
+  | 'scan_clear'
+  | 'scan_weak_noise'
+  | 'scan_strong_signal'
+  | 'monitored_noise'
+  | 'monitored_mismatch'
+  | 'monitored_clear';
+
 export interface PlayerStats {
   damage: number;
   healing: number;
@@ -73,12 +83,22 @@ export interface BranchVoteSubmission {
 export interface ScanReport {
   scannerId: string;
   targetId: string;
-  result:
-    | 'clear'
-    | 'weak_signal'
-    | 'missing_log'
-    | 'contradiction_possible'
-    | 'unstable';
+  result: ScanResult;
+}
+
+export interface EvidenceEvent {
+  playerId: string;
+  round: number;
+  kind: EvidenceKind;
+  weight: number;
+  reason: string;
+}
+
+export interface InferenceHint {
+  playerId: string;
+  suspicion: number;
+  score: number;
+  reason: string;
 }
 
 export interface SuspiciousCoinEvent {
@@ -99,6 +119,8 @@ export interface RoundSummary {
   scans: ScanReport[];
   votes: Record<string, number>;
   publicLogs: string[];
+  evidence: EvidenceEvent[];
+  monitoredHint?: string;
   monitoredPlayerId?: string;
   suspiciousCoin?: SuspiciousCoinEvent;
   branchPlan?: BranchPlan;
@@ -147,6 +169,7 @@ export interface GameState {
   publicLogs: string[];
   privateLogs: Record<string, string[]>;
   debugLogs: string[];
+  inferenceHints: InferenceHint[];
   monitoredPlayerId?: string;
   branchState: BranchState;
   history: RoundSummary[];
