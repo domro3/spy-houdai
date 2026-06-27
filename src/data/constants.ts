@@ -59,6 +59,8 @@ export const PARTY_ACTION_BALANCE = {
 
 export const PARTY_BOSS_ACTION_BALANCE = {
   normalAttackDamage: 10,
+  normalAttackGuardedDamage: 6,
+  normalAttackNoisyGuardDamage: 8,
   bigChargeDamage: 30,
   bigChargeGuardedDamage: 15,
   bigChargeNoisyGuardDamage: 22,
@@ -138,6 +140,9 @@ export const PARTY_GUNNER_ACTIONS: ActionType[] = [
 ];
 
 export const PARTY_SPY_ACTIONS: ActionType[] = [
+  'normal_attack',
+  'defend',
+  'repair',
   'fake_attack',
   'sabotage',
   'boss_heal',

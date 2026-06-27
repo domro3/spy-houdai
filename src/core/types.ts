@@ -138,6 +138,9 @@ export interface RoundSummary {
   bossAction?: BossActionPlan;
   totalDamage: number;
   bossHealing: number;
+  spyBossHelpCount: number;
+  armorRegenAttemptCount: number;
+  armorRegenSuccessCount: number;
   baseDamage: number;
   repairs: number;
   defenseCount: number;
@@ -155,7 +158,7 @@ export interface RoundSummary {
 
 export interface Award {
   title: string;
-  playerId: string;
+  playerId?: string;
   reason: string;
 }
 
@@ -168,6 +171,9 @@ export interface GameResult {
   finalVoteTargetId?: string;
   sabotageCount: number;
   bossHealingCount: number;
+  spyBossHelpCount: number;
+  armorRegenAttemptCount: number;
+  armorRegenSuccessCount: number;
   logScrambleCount: number;
   suspiciousCoin?: SuspiciousCoinEvent;
   awards: Award[];

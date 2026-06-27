@@ -295,20 +295,35 @@ function choosePartyGunnerAction(state: GameState, player: Player, rng: RandomSo
   return weightedChoice(options, rng);
 }
 
-function choosePartySpyAction(state: GameState, _player: Player, rng: RandomSource): ActionType {
+function choosePartySpyAction(state: GameState, player: Player, rng: RandomSource): ActionType {
   const bossRate = state.bossHp / state.bossMaxHp;
   const baseRate = state.baseHp / state.baseMaxHp;
   const options: Array<{ value: ActionType; weight: number }> = [
-    { value: 'fake_attack', weight: state.round <= 2 ? 58 : 38 },
-    { value: 'sabotage', weight: state.round <= 2 ? 25 : 36 },
-    { value: 'boss_heal', weight: state.round <= 2 ? 12 : 28 },
+    { value: 'normal_attack', weight: state.round <= 2 ? 22 : 10 },
+    { value: 'defend', weight: 8 },
+    { value: 'repair', weight: baseRate <= 0.55 ? 14 : 4 },
+    { value: 'fake_attack', weight: state.round <= 2 ? 30 : 22 },
+    { value: 'sabotage', weight: state.round <= 2 ? 25 : 42 },
+    { value: 'boss_heal', weight: state.round <= 2 ? 12 : 30 },
   ];
 
-  if (state.currentBossAction.type === 'big_charge' || state.currentBossAction.type === 'target_lock') {
+  if (state.currentBossAction.type === 'big_charge') {
+    adjust(options, 'defend', 16);
     adjust(options, 'sabotage', 24);
     adjust(options, 'fake_attack', -6);
   }
+  if (state.currentBossAction.type === 'target_lock') {
+    if (state.currentBossAction.targetPlayerId === player.id) {
+      adjust(options, 'defend', 55);
+      adjust(options, 'sabotage', -10);
+      adjust(options, 'boss_heal', -10);
+    } else {
+      adjust(options, 'sabotage', 24);
+      adjust(options, 'fake_attack', -6);
+    }
+  }
   if (state.currentBossAction.type === 'armor_regen') {
+    adjust(options, 'normal_attack', 12);
     adjust(options, 'fake_attack', 12);
     adjust(options, 'boss_heal', 8);
   }
@@ -316,8 +331,11 @@ function choosePartySpyAction(state: GameState, _player: Player, rng: RandomSour
     adjust(options, 'boss_heal', 30);
     adjust(options, 'sabotage', 10);
     adjust(options, 'fake_attack', -12);
+    adjust(options, 'normal_attack', -10);
   }
   if (baseRate <= 0.35) {
+    adjust(options, 'repair', 24);
+    adjust(options, 'normal_attack', 8);
     adjust(options, 'fake_attack', 16);
     adjust(options, 'boss_heal', -10);
   }

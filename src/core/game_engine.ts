@@ -60,6 +60,17 @@ const createStats = (): PlayerStats => ({
   chargeSuccesses: 0,
 });
 
+interface RoundContribution {
+  action?: ActionType;
+  damage: number;
+  repaired: number;
+  mitigated: number;
+  defended: boolean;
+  bossHealing: number;
+}
+
+type RoundContributions = Record<string, RoundContribution>;
+
 export class GameEngine {
   readonly rng: RandomSource;
   state: GameState;
@@ -164,6 +175,9 @@ export class GameEngine {
       round: this.state.round,
       totalDamage: 0,
       bossHealing: 0,
+      spyBossHelpCount: 0,
+      armorRegenAttemptCount: 0,
+      armorRegenSuccessCount: 0,
       baseDamage: 0,
       repairs: 0,
       defenseCount: 0,
@@ -182,22 +196,31 @@ export class GameEngine {
     );
 
     const sabotagedTargets = this.collectSabotageTargets(summary);
+    const contributions = this.createRoundContributions();
     let defenseReduction = 0;
 
     for (const action of Object.values(this.state.submittedActions)) {
       const player = this.getPlayer(action.playerId);
       player.lastAction = action.type;
+      contributions[player.id].action = action.type;
       const sabotaged = sabotagedTargets.has(player.id);
       const damageMultiplier = BRANCH_EFFECTS[this.state.branchState.plan].damageMultiplier;
 
       switch (action.type) {
         case 'normal_attack':
-          this.applyDamage(player, ACTION_BALANCE.normalAttackDamage, damageMultiplier, sabotaged, summary);
+          contributions[player.id].damage += this.applyDamage(
+            player,
+            ACTION_BALANCE.normalAttackDamage,
+            damageMultiplier,
+            sabotaged,
+            summary,
+          );
           break;
         case 'charge_attack':
-          this.resolveChargeAttack(player, damageMultiplier, sabotaged, summary);
+          contributions[player.id].damage += this.resolveChargeAttack(player, damageMultiplier, sabotaged, summary);
           break;
         case 'defend': {
+          contributions[player.id].defended = true;
           summary.defenseCount += 1;
           const reduction = sabotaged
             ? ACTION_BALANCE.sabotagedDefendReduction
@@ -211,6 +234,7 @@ export class GameEngine {
           const healed = this.healBase(amount);
           player.stats.healing += healed;
           summary.repairs += healed;
+          contributions[player.id].repaired += healed;
           changeSuspicion(player, -1);
           break;
         }
@@ -218,18 +242,24 @@ export class GameEngine {
           summary.scans.push(this.resolveScan(player, action.targetId, sabotaged));
           break;
         case 'fake_attack':
-          this.applyDamage(player, ACTION_BALANCE.fakeAttackDamage, damageMultiplier, sabotaged, summary);
+          contributions[player.id].damage += this.applyDamage(
+            player,
+            ACTION_BALANCE.fakeAttackDamage,
+            damageMultiplier,
+            sabotaged,
+            summary,
+          );
           changeSuspicion(player, ACTION_BALANCE.fakeAttackSuspicion);
           break;
         case 'boss_heal': {
           const healed = this.healBoss(ACTION_BALANCE.bossHealAmount);
           player.stats.bossHealing += healed;
           summary.bossHealing += healed;
+          contributions[player.id].bossHealing += healed;
           changeSuspicion(player, ACTION_BALANCE.bossHealSuspicion);
           break;
         }
         case 'sabotage':
-          player.stats.sabotage += 1;
           changeSuspicion(player, ACTION_BALANCE.sabotageSuspicion);
           break;
         case 'scramble_log':
@@ -252,13 +282,16 @@ export class GameEngine {
       const mitigated = Math.round(baseDamage * (defenseReduction / Math.max(0.01, 1 - defenseReduction)));
       for (const action of Object.values(this.state.submittedActions)) {
         if (action.type === 'defend') {
-          this.getPlayer(action.playerId).stats.mitigated += Math.max(1, Math.round(mitigated / summary.defenseCount));
+          const perDefender = Math.max(1, Math.round(mitigated / summary.defenseCount));
+          this.getPlayer(action.playerId).stats.mitigated += perDefender;
+          contributions[action.playerId].mitigated += perDefender;
         }
       }
     }
 
     this.addMonitoredEvidence(summary);
     this.writeRoundLogs(summary);
+    this.writePersonalContributionLogs(summary, contributions);
     this.state.phase = 'plea';
     return summary;
   }
@@ -507,6 +540,9 @@ export class GameEngine {
       bossAction: this.state.currentBossAction,
       totalDamage: 0,
       bossHealing: 0,
+      spyBossHelpCount: 0,
+      armorRegenAttemptCount: 0,
+      armorRegenSuccessCount: 0,
       baseDamage: 0,
       repairs: 0,
       defenseCount: 0,
@@ -529,6 +565,7 @@ export class GameEngine {
     );
 
     const sabotagedTargets = this.collectSabotageTargets(summary);
+    const contributions = this.createRoundContributions();
     const defenders: string[] = [];
     let pendingBossDamage = 0;
     let pendingBossHealing = 0;
@@ -536,6 +573,7 @@ export class GameEngine {
     for (const action of Object.values(this.state.submittedActions)) {
       const player = this.getPlayer(action.playerId);
       player.lastAction = action.type;
+      contributions[player.id].action = action.type;
       const sabotaged = sabotagedTargets.has(player.id);
 
       switch (action.type) {
@@ -544,6 +582,7 @@ export class GameEngine {
           pendingBossDamage += damage;
           player.stats.damage += damage;
           summary.totalDamage += damage;
+          contributions[player.id].damage += damage;
           break;
         }
         case 'fake_attack': {
@@ -551,11 +590,13 @@ export class GameEngine {
           pendingBossDamage += damage;
           player.stats.damage += damage;
           summary.totalDamage += damage;
+          contributions[player.id].damage += damage;
           break;
         }
         case 'defend':
           defenders.push(player.id);
           summary.defenseCount += 1;
+          contributions[player.id].defended = true;
           break;
         case 'repair': {
           const amount = sabotaged
@@ -564,10 +605,12 @@ export class GameEngine {
           const healed = this.healBase(amount);
           player.stats.healing += healed;
           summary.repairs += healed;
+          contributions[player.id].repaired += healed;
           break;
         }
         case 'boss_heal': {
           pendingBossHealing += PARTY_ACTION_BALANCE.spyBossHealAmount;
+          summary.spyBossHelpCount += 1;
           player.stats.bossHealing += PARTY_ACTION_BALANCE.spyBossHealAmount;
           break;
         }
@@ -593,11 +636,17 @@ export class GameEngine {
       this.state.bossMaxHp,
     );
     summary.bossHealing += Math.max(0, this.state.bossHp - Math.max(0, beforeBossHp - pendingBossDamage));
+    for (const action of Object.values(this.state.submittedActions)) {
+      if (action.type === 'boss_heal') {
+        contributions[action.playerId].bossHealing += summary.bossHealing;
+      }
+    }
 
     const bossEventLog = this.state.bossHp <= 0
       ? 'ボスを撃破！砲台の勝ちどきが響きました。'
-      : this.resolvePartyBossAction(summary, defenders, sabotagedTargets);
+      : this.resolvePartyBossAction(summary, defenders, sabotagedTargets, contributions);
     this.writePartyRoundLogs(summary, bossEventLog);
+    this.writePersonalContributionLogs(summary, contributions);
 
     if (this.shouldFinish()) {
       this.state.phase = 'vote';
@@ -613,12 +662,28 @@ export class GameEngine {
     summary: RoundSummary,
     defenders: string[],
     sabotagedTargets: Set<string>,
+    contributions: RoundContributions,
   ): string {
     const action = this.state.currentBossAction;
     switch (action.type) {
       case 'normal_attack': {
-        const damage = this.damageBase(PARTY_BOSS_ACTION_BALANCE.normalAttackDamage);
+        const guarded = defenders.length > 0;
+        const noisyGuard = guarded && defenders.every((id) => sabotagedTargets.has(id));
+        const damage = this.damageBase(
+          guarded
+            ? noisyGuard
+              ? PARTY_BOSS_ACTION_BALANCE.normalAttackNoisyGuardDamage
+              : PARTY_BOSS_ACTION_BALANCE.normalAttackGuardedDamage
+            : PARTY_BOSS_ACTION_BALANCE.normalAttackDamage,
+        );
         summary.baseDamage += damage;
+        this.addMitigationStats(
+          defenders,
+          PARTY_BOSS_ACTION_BALANCE.normalAttackDamage - damage,
+          contributions,
+        );
+        if (guarded && noisyGuard) return `通常攻撃をガード！でもバリアにノイズ、拠点に${damage}ダメージ。`;
+        if (guarded) return `通常攻撃をガード！拠点ダメージを少し軽減しました。`;
         return `ボスの通常攻撃！拠点に${damage}ダメージ。`;
       }
       case 'big_charge': {
@@ -632,12 +697,13 @@ export class GameEngine {
             : PARTY_BOSS_ACTION_BALANCE.bigChargeDamage,
         );
         summary.baseDamage += damage;
-        this.addMitigationStats(defenders, PARTY_BOSS_ACTION_BALANCE.bigChargeDamage - damage);
+        this.addMitigationStats(defenders, PARTY_BOSS_ACTION_BALANCE.bigChargeDamage - damage, contributions);
         if (!guarded) return `大技が直撃！拠点に${damage}ダメージ。`;
         if (noisyGuard) return `バリアにノイズ発生！大技を少しだけ軽減しました。`;
         return 'バリア成功！大技ダメージを半分にしました。';
       }
       case 'armor_regen': {
+        summary.armorRegenAttemptCount += 1;
         const playerCount = this.state.players.length as 4 | 5 | 6;
         const threshold = PARTY_BOSS_ACTION_BALANCE.armorRegenBlockThresholdByPlayerCount[playerCount];
         if (summary.totalDamage >= threshold) {
@@ -645,6 +711,9 @@ export class GameEngine {
         }
         const healed = this.healBoss(PARTY_BOSS_ACTION_BALANCE.armorRegenHeal);
         summary.bossHealing += healed;
+        if (healed > 0) {
+          summary.armorRegenSuccessCount += 1;
+        }
         return healed > 0
           ? `火力不足！ボスの装甲が${healed}回復。`
           : '火力不足！しかしボスの装甲は限界でした。';
@@ -661,7 +730,11 @@ export class GameEngine {
             : PARTY_BOSS_ACTION_BALANCE.targetLockDamage,
         );
         summary.baseDamage += damage;
-        this.addMitigationStats(targetGuarded && target ? [target.id] : [], PARTY_BOSS_ACTION_BALANCE.targetLockDamage - damage);
+        this.addMitigationStats(
+          targetGuarded && target ? [target.id] : [],
+          PARTY_BOSS_ACTION_BALANCE.targetLockDamage - damage,
+          contributions,
+        );
         if (!target) return `狙い撃ち！拠点に${damage}ダメージ。`;
         if (!targetGuarded) return `${target.name}周辺に直撃！拠点に${damage}ダメージ。`;
         if (noisyGuard) return `${target.name}のバリアにノイズ！被害を少し軽減しました。`;
@@ -701,11 +774,38 @@ export class GameEngine {
     return before - this.state.baseHp;
   }
 
-  private addMitigationStats(defenderIds: string[], mitigated: number): void {
+  private addMitigationStats(
+    defenderIds: string[],
+    mitigated: number,
+    contributions?: RoundContributions,
+  ): void {
     if (defenderIds.length === 0 || mitigated <= 0) return;
     const perDefender = Math.max(1, Math.round(mitigated / defenderIds.length));
     for (const defenderId of defenderIds) {
       this.getPlayer(defenderId).stats.mitigated += perDefender;
+      if (contributions?.[defenderId]) {
+        contributions[defenderId].mitigated += perDefender;
+      }
+    }
+  }
+
+  private createRoundContributions(): RoundContributions {
+    return Object.fromEntries(this.state.players.map((player) => [player.id, {
+      damage: 0,
+      repaired: 0,
+      mitigated: 0,
+      defended: false,
+      bossHealing: 0,
+    }])) as RoundContributions;
+  }
+
+  private writePersonalContributionLogs(summary: RoundSummary, contributions: RoundContributions): void {
+    for (const player of this.state.players) {
+      const contribution = contributions[player.id];
+      if (!contribution) continue;
+      const parts = personalContributionParts(contribution);
+      if (parts.length === 0) continue;
+      this.state.privateLogs[player.id].push(`第${summary.round}R 個人結果: ${parts.join(' / ')}。`);
     }
   }
 
@@ -821,7 +921,7 @@ export class GameEngine {
     branchMultiplier: number,
     sabotaged: boolean,
     summary: RoundSummary,
-  ): void {
+  ): number {
     const damage = Math.round(baseDamage * branchMultiplier * (sabotaged ? ACTION_BALANCE.sabotageAttackMultiplier : 1));
     this.state.bossHp = clamp(this.state.bossHp - damage, 0, this.state.bossMaxHp);
     player.stats.damage += damage;
@@ -829,6 +929,7 @@ export class GameEngine {
     if (damage >= 60 || player.role === 'gunner') {
       changeSuspicion(player, -1);
     }
+    return damage;
   }
 
   private resolveChargeAttack(
@@ -836,13 +937,13 @@ export class GameEngine {
     branchMultiplier: number,
     sabotaged: boolean,
     summary: RoundSummary,
-  ): void {
+  ): number {
     const successRate = ACTION_BALANCE.chargeAttackSuccessRate - (sabotaged ? ACTION_BALANCE.sabotageChargePenalty : 0);
     const success = this.rng.next() < successRate;
     const baseDamage = success
       ? ACTION_BALANCE.chargeAttackSuccessDamage
       : ACTION_BALANCE.chargeAttackFailureDamage;
-    this.applyDamage(player, baseDamage, branchMultiplier, false, summary);
+    const damage = this.applyDamage(player, baseDamage, branchMultiplier, false, summary);
     if (success) {
       player.stats.chargeSuccesses += 1;
       changeSuspicion(player, -1);
@@ -859,6 +960,7 @@ export class GameEngine {
       changeSuspicion(player, 1);
       this.state.debugLogs.push(`[debug] charge backfire: ${player.name}`);
     }
+    return damage;
   }
 
   private resolveScan(player: Player, targetId: string | undefined, sabotaged: boolean): ScanReport {
@@ -1105,6 +1207,9 @@ export class GameEngine {
         : spy.stats.bossHealing > 0
           ? history.filter((round) => round.bossHealing > 0).length
           : 0,
+      spyBossHelpCount: history.reduce((sum, round) => sum + round.spyBossHelpCount, 0),
+      armorRegenAttemptCount: history.reduce((sum, round) => sum + round.armorRegenAttemptCount, 0),
+      armorRegenSuccessCount: history.reduce((sum, round) => sum + round.armorRegenSuccessCount, 0),
       logScrambleCount: history.filter((round) => round.scrambleLog).length,
       suspiciousCoin: history.find((round) => round.suspiciousCoin)?.suspiciousCoin,
       awards: [],
@@ -1123,7 +1228,7 @@ export class GameEngine {
     if (this.state.mode === 'party' && result.finalVoteTargetId) {
       this.state.publicLogs.push(
         result.finalVoteTargetId === spy.id
-          ? 'おまけ投票成功。砲台チームに名探偵砲台ボーナスです。'
+          ? 'おまけ投票成功。砲台チームに名探偵砲台チームボーナスです。'
           : 'おまけ投票失敗。スパイに潜伏成功称号です。',
       );
     }
@@ -1246,16 +1351,27 @@ export class GameEngine {
         reason: `${spy.stats.sabotageRepair}回、修理アームを止めました`,
       });
     }
-    awards.push({
-      title: result.finalVoteTargetId === spy.id ? '名探偵砲台' : '潜伏成功',
-      playerId: result.finalVoteTargetId === spy.id
-        ? (this.state.players.find((player) => player.role === 'gunner')?.id ?? spy.id)
-        : spy.id,
-      reason: result.finalVoteTargetId === spy.id
-        ? 'おまけ投票でスパイを当てました'
-        : 'おまけ投票をかわしました',
-    });
+    const correctVoters = this.partyCorrectSpyVoters(result.spyId);
+    if (correctVoters.length > 0) {
+      awards.push({
+        title: '名探偵砲台チーム',
+        reason: `おまけ投票でスパイを当てました: ${correctVoters.map((player) => player.name).join('、')}`,
+      });
+    } else {
+      awards.push({
+        title: '潜伏成功',
+        playerId: spy.id,
+        reason: 'おまけ投票をかわしました',
+      });
+    }
     return awards;
+  }
+
+  private partyCorrectSpyVoters(spyId: string): Player[] {
+    return Object.values(this.state.votes)
+      .filter((vote) => vote.targetId === spyId)
+      .map((vote) => this.getPlayer(vote.voterId))
+      .filter((player) => player.role === 'gunner');
   }
 
   private assertPhase(phase: GameState['phase']): void {
@@ -1344,6 +1460,29 @@ function partySabotageTargetLog(targetAction?: ActionType): string {
     return '修理アームが一瞬停止。回復量が少なくなっています。';
   }
   return '操作系にノイズ。行動が少し弱まりました。';
+}
+
+function personalContributionParts(contribution: RoundContribution): string[] {
+  const parts: string[] = [];
+  const action = contribution.action;
+  const isAttack = action === 'normal_attack' || action === 'charge_attack' || action === 'fake_attack';
+
+  if (isAttack || contribution.damage > 0) {
+    parts.push(`ボスに${contribution.damage}ダメージ`);
+  }
+  if (contribution.mitigated > 0) {
+    parts.push(`${contribution.mitigated}ダメージ守った`);
+  } else if (contribution.defended || action === 'defend') {
+    parts.push('バリアを展開');
+  }
+  if (action === 'repair' || contribution.repaired > 0) {
+    parts.push(`拠点を${contribution.repaired}修理`);
+  }
+  if (action === 'boss_heal' || contribution.bossHealing > 0) {
+    parts.push(`ボスを${contribution.bossHealing}回復`);
+  }
+
+  return parts;
 }
 
 function pleaContradictsAction(plea: string, action?: ActionType): boolean {

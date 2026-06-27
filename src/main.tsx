@@ -335,6 +335,33 @@ function PlayerControl({ player, engine, onChange }: { player: Player; engine: G
   const targetId = targetByPlayer[player.id] ?? state.players.find((candidate) => candidate.id !== player.id)?.id;
 
   if (state.phase === 'action') {
+    const partySpyBasicActions = state.mode === 'party' && player.role === 'spy'
+      ? availableActions.filter((type) => ['normal_attack', 'defend', 'repair'].includes(type))
+      : [];
+    const partySpySpecialActions = state.mode === 'party' && player.role === 'spy'
+      ? availableActions.filter((type) => ['fake_attack', 'sabotage', 'boss_heal'].includes(type))
+      : [];
+    const groupedPartySpyActions = partySpyBasicActions.length > 0 || partySpySpecialActions.length > 0;
+    const actionButton = (type: ActionType, quiet = false) => (
+      <button
+        type="button"
+        key={type}
+        className={`${selectedAction?.type === type ? 'choice selected' : 'choice'}${quiet ? ' quiet' : ''}`}
+        title={actionHelp(type, state.mode)}
+        onClick={() => {
+          engine.submitAction({
+            playerId: player.id,
+            type,
+            targetId: requiresTarget(type) ? targetId : undefined,
+          });
+          onChange();
+        }}
+      >
+        {ACTION_ICONS[type]}
+        <span>{actionLabel(type, state.mode)}</span>
+      </button>
+    );
+
     return (
       <div className="manual-card">
         <ControlHeader player={player} title="行動選択" engine={engine} />
@@ -342,27 +369,22 @@ function PlayerControl({ player, engine, onChange }: { player: Player; engine: G
         {selectedAction && requiresTarget(selectedAction.type) && selectedAction.targetId && (
           <SelectionStatus label="対象" value={engine.getPlayer(selectedAction.targetId).name} />
         )}
-        <div className="choice-grid">
-          {availableActions.map((type) => (
-            <button
-              type="button"
-              key={type}
-              className={selectedAction?.type === type ? 'choice selected' : 'choice'}
-              title={actionHelp(type, state.mode)}
-              onClick={() => {
-                engine.submitAction({
-                  playerId: player.id,
-                  type,
-                  targetId: requiresTarget(type) ? targetId : undefined,
-                });
-                onChange();
-              }}
-            >
-              {ACTION_ICONS[type]}
-              <span>{actionLabel(type, state.mode)}</span>
-            </button>
-          ))}
-        </div>
+        {groupedPartySpyActions ? (
+          <div className="spy-action-stack">
+            <div>
+              <span className="action-group-label">基本行動</span>
+              <div className="choice-grid">{partySpyBasicActions.map((type) => actionButton(type))}</div>
+            </div>
+            <div>
+              <span className="action-group-label">スパイ用行動</span>
+              <div className="choice-grid spy-special">{partySpySpecialActions.map((type) => actionButton(type, true))}</div>
+            </div>
+          </div>
+        ) : (
+          <div className="choice-grid">
+            {availableActions.map((type) => actionButton(type))}
+          </div>
+        )}
         {availableActions.some(requiresTarget) && (
           <TargetSelect
             player={player}
@@ -638,14 +660,14 @@ function ResultView({ engine }: { engine: GameEngine }) {
         <p>
           おまけ投票:
           {' '}
-          {result.finalVoteTargetId === result.spyId ? '名探偵砲台ボーナス' : 'スパイ潜伏成功'}
+          {result.finalVoteTargetId === result.spyId ? '名探偵砲台チームボーナス' : 'スパイ潜伏成功'}
         </p>
       )}
       <div className="award-list">
         {result.awards.map((award) => (
           <div key={`${award.title}-${award.playerId}`}>
             <strong>{award.title}</strong>
-            <span>{engine.getPlayer(award.playerId).name} - {award.reason}</span>
+            <span>{award.playerId ? engine.getPlayer(award.playerId).name : 'チーム'} - {award.reason}</span>
           </div>
         ))}
       </div>
@@ -747,7 +769,7 @@ function partyBossHint(type: BossActionType): string {
   if (type === 'big_charge') return '守る人がいると安心';
   if (type === 'armor_regen') return '集中して撃つチャンス';
   if (type === 'target_lock') return '狙われた砲台は守る';
-  return '基本は撃つ';
+  return '撃つ優先、守るも少し有効';
 }
 
 function phaseLabel(phase: string, mode: GameMode): string {

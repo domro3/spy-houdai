@@ -506,6 +506,29 @@ dt {
   box-shadow: inset 0 0 0 2px #6f141d;
 }
 
+.choice.quiet {
+  min-height: 38px;
+  background: #fffefa;
+  color: #4d5663;
+}
+
+.spy-action-stack {
+  display: grid;
+  gap: 12px;
+}
+
+.action-group-label {
+  display: block;
+  margin-bottom: 6px;
+  color: #68717f;
+  font-size: 0.74rem;
+  font-weight: 900;
+}
+
+.choice-grid.spy-special {
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+}
+
 .target-select {
   max-width: 260px;
 }

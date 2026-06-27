@@ -135,6 +135,18 @@ describe('votes and special rules', () => {
     expect(engine.state.publicLogs.at(-1)).toContain('砲台ロボ');
     expect(engine.state.publicLogs.at(-1)).not.toContain('スパイ');
   });
+
+  it('counts Advanced sabotage once per sabotage action', () => {
+    const engine = new GameEngine({ totalPlayers: 4, humanPlayers: 0, seed: 24, spyId: 'p4' });
+    engine.submitAction({ playerId: 'p1', type: 'normal_attack' });
+    engine.submitAction({ playerId: 'p2', type: 'repair' });
+    engine.submitAction({ playerId: 'p3', type: 'defend' });
+    engine.submitAction({ playerId: 'p4', type: 'sabotage', targetId: 'p1' });
+    const summary = engine.resolveActions();
+
+    expect(summary.sabotageCount).toBe(1);
+    expect(engine.spy().stats.sabotage).toBe(1);
+  });
 });
 
 describe('CPU simulation', () => {
@@ -165,7 +177,7 @@ describe('CPU simulation', () => {
 });
 
 describe('Party Mode', () => {
-  it('uses compact action sets for gunners and spy', () => {
+  it('lets Party spies choose basic actions and spy-only actions', () => {
     const engine = new GameEngine({
       totalPlayers: 4,
       humanPlayers: 0,
@@ -175,8 +187,38 @@ describe('Party Mode', () => {
     });
 
     expect(engine.availableActions('p1')).toEqual(['normal_attack', 'defend', 'repair']);
-    expect(engine.availableActions('p4')).toEqual(['fake_attack', 'sabotage', 'boss_heal']);
+    expect(engine.availableActions('p4')).toEqual([
+      'normal_attack',
+      'defend',
+      'repair',
+      'fake_attack',
+      'sabotage',
+      'boss_heal',
+    ]);
     expect(() => engine.submitAction({ playerId: 'p1', type: 'scan', targetId: 'p4' })).toThrow();
+  });
+
+  it('treats Party spy basic actions as real team actions', () => {
+    const engine = new GameEngine({
+      totalPlayers: 4,
+      humanPlayers: 0,
+      seed: 66,
+      spyId: 'p4',
+      mode: 'party',
+    });
+    engine.state.currentBossAction = { type: 'normal_attack' };
+    engine.state.baseHp = 70;
+
+    engine.submitAction({ playerId: 'p1', type: 'defend' });
+    engine.submitAction({ playerId: 'p2', type: 'repair' });
+    engine.submitAction({ playerId: 'p3', type: 'normal_attack' });
+    engine.submitAction({ playerId: 'p4', type: 'normal_attack' });
+    const summary = engine.resolveActions();
+
+    expect(summary.totalDamage).toBe(144);
+    expect(engine.spy().stats.damage).toBe(72);
+    expect(engine.state.privateLogs.p4.join('\n')).toContain('ボスに72ダメージ');
+    expect(engine.state.baseHp).toBe(82);
   });
 
   it('defines prototype_gigant as data-driven boss content', () => {
@@ -215,6 +257,30 @@ describe('Party Mode', () => {
     expect(engine.state.result?.spyBehindWin).toBe(false);
   });
 
+  it('grants the Party detective award as a team bonus for actual correct voters', () => {
+    const engine = new GameEngine({
+      totalPlayers: 4,
+      humanPlayers: 0,
+      seed: 67,
+      spyId: 'p4',
+      mode: 'party',
+    });
+    engine.state.bossHp = 1;
+    completePartyRound(engine, 'normal_attack');
+    engine.submitVote({ voterId: 'p1', targetId: 'p4' });
+    engine.submitVote({ voterId: 'p2', targetId: 'p4' });
+    engine.submitVote({ voterId: 'p3', targetId: 'p1' });
+    engine.submitVote({ voterId: 'p4', targetId: 'p1' });
+    engine.resolveVotes();
+
+    const detectiveAward = engine.state.result?.awards.find((award) => award.title === '名探偵砲台チーム');
+    expect(detectiveAward).toBeDefined();
+    expect(detectiveAward?.playerId).toBeUndefined();
+    expect(detectiveAward?.reason).toContain('赤砲台');
+    expect(detectiveAward?.reason).toContain('青砲台');
+    expect(detectiveAward?.reason).not.toContain('緑砲台');
+  });
+
   it('keeps Party Mode round logs short and skips advanced special systems', () => {
     const state = runCpuGame({
       totalPlayers: 5,
@@ -238,6 +304,9 @@ describe('Party Mode', () => {
     expect(summary.gunnerWins + summary.spyWins).toBe(10);
     expect(summary.spyBehindWins).toBe(0);
     expect(summary.suspiciousCoinUses).toBe(0);
+    expect(summary.spyBossHelpCount).toBeGreaterThanOrEqual(0);
+    expect(summary.armorRegenAttemptCount).toBeGreaterThanOrEqual(0);
+    expect(summary.armorRegenSuccessCount).toBeGreaterThanOrEqual(0);
   });
 
   it('shows sabotage feedback privately while keeping public Party logs short', () => {
@@ -276,6 +345,51 @@ describe('Party Mode', () => {
     const awardTitles = engine.state.result?.awards.map((award) => award.title) ?? [];
     expect(awardTitles).toContain('妨害職人');
     expect(awardTitles).toContain('バリアクラッシャー');
+  });
+
+  it('writes personal damage, guard, and repair amounts to private logs', () => {
+    const engine = new GameEngine({
+      totalPlayers: 4,
+      humanPlayers: 0,
+      seed: 64,
+      spyId: 'p4',
+      mode: 'party',
+    });
+    engine.state.currentBossAction = { type: 'big_charge' };
+    engine.state.baseHp = 50;
+
+    engine.submitAction({ playerId: 'p1', type: 'defend' });
+    engine.submitAction({ playerId: 'p2', type: 'normal_attack' });
+    engine.submitAction({ playerId: 'p3', type: 'repair' });
+    engine.submitAction({ playerId: 'p4', type: 'fake_attack' });
+    engine.resolveActions();
+
+    expect(engine.state.privateLogs.p1.join('\n')).toContain('15ダメージ守った');
+    expect(engine.state.privateLogs.p2.join('\n')).toContain('ボスに72ダメージ');
+    expect(engine.state.privateLogs.p3.join('\n')).toContain('拠点を18修理');
+    expect(engine.state.privateLogs.p4.join('\n')).toContain('ボスに34ダメージ');
+  });
+
+  it('lets defend lightly reduce Party normal attacks', () => {
+    const engine = new GameEngine({
+      totalPlayers: 4,
+      humanPlayers: 0,
+      seed: 65,
+      spyId: 'p4',
+      mode: 'party',
+    });
+    engine.state.currentBossAction = { type: 'normal_attack' };
+
+    engine.submitAction({ playerId: 'p1', type: 'defend' });
+    engine.submitAction({ playerId: 'p2', type: 'normal_attack' });
+    engine.submitAction({ playerId: 'p3', type: 'normal_attack' });
+    engine.submitAction({ playerId: 'p4', type: 'fake_attack' });
+    const summary = engine.resolveActions();
+
+    expect(summary.baseDamage).toBe(6);
+    expect(engine.state.baseHp).toBe(94);
+    expect(summary.publicLogs.join('\n')).toContain('通常攻撃をガード');
+    expect(engine.state.privateLogs.p1.join('\n')).toContain('4ダメージ守った');
   });
 });
 
@@ -424,6 +538,9 @@ function emptySummary(round: number): RoundSummary {
     round,
     totalDamage: 0,
     bossHealing: 0,
+    spyBossHelpCount: 0,
+    armorRegenAttemptCount: 0,
+    armorRegenSuccessCount: 0,
     baseDamage: 0,
     repairs: 0,
     defenseCount: 0,

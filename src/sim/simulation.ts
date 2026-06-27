@@ -19,6 +19,9 @@ export interface SimulationGameRecord {
   remainingBossHp: number;
   remainingBaseHp: number;
   bossHealCount: number;
+  spyBossHelpCount: number;
+  armorRegenAttemptCount: number;
+  armorRegenSuccessCount: number;
   sabotageCount: number;
   suspiciousCoinUsed: boolean;
 }
@@ -39,6 +42,12 @@ export interface SimulationSummary {
   averageRemainingBaseHp: number;
   averageRounds: number;
   averageBossHealCount: number;
+  spyBossHelpCount: number;
+  armorRegenAttemptCount: number;
+  armorRegenSuccessCount: number;
+  averageSpyBossHelpCount: number;
+  averageArmorRegenAttemptCount: number;
+  averageArmorRegenSuccessCount: number;
   averageSabotageCount: number;
   suspiciousCoinUsageRate: number;
   suspiciousCoinUses: number;
@@ -72,6 +81,9 @@ export function runSimulation(options: SimulationOptions): SimulationSummary {
   const finalVoteHitSpyCount = records.filter((record) => record.finalVoteHitSpy).length;
   const topSuspicionSpyCount = records.filter((record) => record.topSuspicionWasSpy).length;
   const suspiciousCoinUses = records.filter((record) => record.suspiciousCoinUsed).length;
+  const spyBossHelpCount = sum(records.map((record) => record.spyBossHelpCount));
+  const armorRegenAttemptCount = sum(records.map((record) => record.armorRegenAttemptCount));
+  const armorRegenSuccessCount = sum(records.map((record) => record.armorRegenSuccessCount));
 
   return {
     games: options.games,
@@ -89,6 +101,12 @@ export function runSimulation(options: SimulationOptions): SimulationSummary {
     averageRemainingBaseHp: average(records.map((record) => record.remainingBaseHp)),
     averageRounds: average(records.map((record) => record.rounds)),
     averageBossHealCount: average(records.map((record) => record.bossHealCount)),
+    spyBossHelpCount,
+    armorRegenAttemptCount,
+    armorRegenSuccessCount,
+    averageSpyBossHelpCount: spyBossHelpCount / options.games,
+    averageArmorRegenAttemptCount: armorRegenAttemptCount / options.games,
+    averageArmorRegenSuccessCount: armorRegenSuccessCount / options.games,
     averageSabotageCount: average(records.map((record) => record.sabotageCount)),
     suspiciousCoinUsageRate: suspiciousCoinUses / options.games,
     suspiciousCoinUses,
@@ -114,6 +132,9 @@ export function formatSimulationSummary(summary: SimulationSummary): string {
     `平均残り拠点耐久: ${formatNumber(summary.averageRemainingBaseHp)}`,
     `平均ラウンド数: ${formatNumber(summary.averageRounds)}`,
     `ボス回復平均回数: ${formatNumber(summary.averageBossHealCount)}`,
+    `スパイ支援平均回数: ${formatNumber(summary.averageSpyBossHelpCount)} (${summary.spyBossHelpCount}/${summary.games})`,
+    `装甲再生試行平均回数: ${formatNumber(summary.averageArmorRegenAttemptCount)} (${summary.armorRegenAttemptCount}/${summary.games})`,
+    `装甲再生成功平均回数: ${formatNumber(summary.averageArmorRegenSuccessCount)} (${summary.armorRegenSuccessCount}/${summary.games})`,
     `妨害平均回数: ${formatNumber(summary.averageSabotageCount)}`,
     `怪しいコイン使用率: ${formatRate(summary.suspiciousCoinUsageRate)} (${summary.suspiciousCoinUses}/${summary.games})`,
   ].join('\n');
@@ -135,6 +156,9 @@ function createGameRecord(index: number, seed: number, state: GameState): Simula
     remainingBossHp: state.bossHp,
     remainingBaseHp: state.baseHp,
     bossHealCount: state.result.bossHealingCount,
+    spyBossHelpCount: state.result.spyBossHelpCount,
+    armorRegenAttemptCount: state.result.armorRegenAttemptCount,
+    armorRegenSuccessCount: state.result.armorRegenSuccessCount,
     sabotageCount: state.result.sabotageCount,
     suspiciousCoinUsed: state.history.some((round) => Boolean(round.suspiciousCoin)),
   };
@@ -145,7 +169,11 @@ function topSuspicionPlayerId(state: GameState): string | undefined {
 }
 
 function average(values: number[]): number {
-  return values.reduce((sum, value) => sum + value, 0) / values.length;
+  return sum(values) / values.length;
+}
+
+function sum(values: number[]): number {
+  return values.reduce((total, value) => total + value, 0);
 }
 
 function formatRate(value: number): string {
