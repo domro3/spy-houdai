@@ -54,6 +54,7 @@ function App() {
   const canResolvePleas = state.phase === 'plea' && state.players.every((player) => state.pleas[player.id]);
   const canResolveVotes = state.phase === 'vote' && state.players.every((player) => state.votes[player.id]);
   const canResolveBranch = state.phase === 'branch' && state.players.every((player) => state.branchVotes[player.id]);
+  const activePhaseReady = phaseReadyCount(engine);
 
   const rerender = () => forceRender((value) => value + 1);
 
@@ -132,46 +133,15 @@ function App() {
         </div>
       </section>
 
-      <section className="status-grid">
-        <BattleGauge label="ボスHP" value={state.bossHp} max={state.bossMaxHp} tone="boss" />
-        <BattleGauge label="拠点耐久" value={state.baseHp} max={state.baseMaxHp} tone="base" />
-        <div className="round-panel">
-          <span>ROUND</span>
-          <strong>{Math.min(state.round, state.maxRounds)} / {state.maxRounds}</strong>
-          <em>{phaseLabel(state.phase)}</em>
-        </div>
-        <div className="round-panel">
-          <span>作戦</span>
-          <strong>{branchPlanLabel(state.branchState.plan)}</strong>
-          <em>{state.branchState.condition ?? '判定前'}</em>
-        </div>
-      </section>
-
       <section className="battlefield">
-        <div className="boss-visual" aria-label="ボス">
-          <svg viewBox="0 0 320 220" role="img">
-            <defs>
-              <linearGradient id="boss-shell" x1="0" x2="1">
-                <stop offset="0%" stopColor="#6f141d" />
-                <stop offset="55%" stopColor="#d1495b" />
-                <stop offset="100%" stopColor="#f7b267" />
-              </linearGradient>
-            </defs>
-            <path d="M72 144 L104 70 L160 28 L216 70 L248 144 L202 194 H118 Z" fill="url(#boss-shell)" />
-            <circle cx="128" cy="104" r="16" fill="#111827" />
-            <circle cx="192" cy="104" r="16" fill="#111827" />
-            <path d="M120 152 Q160 176 200 152" fill="none" stroke="#111827" strokeWidth="12" strokeLinecap="round" />
-            <path d="M54 160 L12 190 M266 160 L308 190" stroke="#345995" strokeWidth="14" strokeLinecap="round" />
-          </svg>
-          <div>
-            <h2>巨大ボス接近中</h2>
-            <p>公開ログと疑惑メーターから、砲台に紛れたスパイを見抜いてください。</p>
-          </div>
-        </div>
+        <CentralStatusPanel engine={engine} readyCount={activePhaseReady.ready} totalCount={activePhaseReady.total} />
 
         <div className="action-panel">
           <div className="panel-heading">
-            <h2>{phaseLabel(state.phase)}</h2>
+            <div>
+              <span className="section-kicker">現在の操作</span>
+              <h2>{phaseInstruction(state.phase)}</h2>
+            </div>
             <div className="button-row">
               <button type="button" className="icon-button" onClick={autoFillCurrentPhase} disabled={state.phase === 'finished'}>
                 <Bot size={18} />
@@ -223,10 +193,82 @@ function App() {
       </section>
 
       <section className="log-layout">
-        <LogPanel title="ラウンドログ" logs={state.roundLogs} />
-        <LogPanel title="公開ログ" logs={state.publicLogs.slice(-18)} />
+        <RoundLogTimeline engine={engine} />
+        <LogPanel title="公開ログ履歴" logs={state.publicLogs.slice(-18)} />
       </section>
+
+      <DebugLogPanel logs={state.debugLogs} />
     </main>
+  );
+}
+
+function CentralStatusPanel({
+  engine,
+  readyCount,
+  totalCount,
+}: {
+  engine: GameEngine;
+  readyCount: number;
+  totalCount: number;
+}) {
+  const state = engine.state;
+  const monitored = state.monitoredPlayerId ? engine.getPlayer(state.monitoredPlayerId) : undefined;
+  return (
+    <section className="central-panel" aria-label="中央状況">
+      <div className="central-header">
+        <div>
+          <span className="section-kicker">中央画面</span>
+          <h2>ROUND {Math.min(state.round, state.maxRounds)} / {state.maxRounds}</h2>
+        </div>
+        <div className="phase-pill">{phaseLabel(state.phase)}</div>
+      </div>
+
+      <div className="status-grid">
+        <BattleGauge label="ボスHP" value={state.bossHp} max={state.bossMaxHp} tone="boss" />
+        <BattleGauge label="拠点耐久" value={state.baseHp} max={state.baseMaxHp} tone="base" />
+      </div>
+
+      <div className="central-facts">
+        <div>
+          <span>作戦</span>
+          <strong>{branchPlanLabel(state.branchState.plan)}</strong>
+          <em>{state.branchState.condition ?? '判定前'}</em>
+        </div>
+        <div>
+          <span>監視対象</span>
+          <strong>{monitored?.name ?? 'なし'}</strong>
+          <em>{monitored ? suspicionStars(monitored.suspicion) : '次回投票で決定'}</em>
+        </div>
+        <div>
+          <span>入力状況</span>
+          <strong>{readyCount} / {totalCount}</strong>
+          <em>{phaseInputLabel(state.phase)}</em>
+        </div>
+      </div>
+
+      <SuspicionBoard engine={engine} />
+    </section>
+  );
+}
+
+function SuspicionBoard({ engine }: { engine: GameEngine }) {
+  const players = [...engine.state.players].sort((a, b) => b.suspicion - a.suspicion);
+  return (
+    <div className="suspicion-board">
+      <div className="board-heading">
+        <h3>疑惑メーター</h3>
+        <span>監視・投票・スキャンの目安</span>
+      </div>
+      <div className="suspicion-list">
+        {players.map((player) => (
+          <div key={player.id} className={player.status === 'monitored' ? 'suspicion-row monitored' : 'suspicion-row'}>
+            <span>{player.name}</span>
+            <strong>{suspicionStars(player.suspicion)}</strong>
+            <em>{player.suspicion}</em>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -240,7 +282,11 @@ function PlayerControl({ player, engine, onChange }: { player: Player; engine: G
   if (state.phase === 'action') {
     return (
       <div className="manual-card">
-        <h3>{player.name} 行動選択 / {roleLabel(player)}</h3>
+        <ControlHeader player={player} title="行動選択" engine={engine} />
+        <SelectionStatus label="選択済み" value={selectedAction ? actionLabel(selectedAction.type) : '未選択'} />
+        {selectedAction && requiresTarget(selectedAction.type) && selectedAction.targetId && (
+          <SelectionStatus label="対象" value={engine.getPlayer(selectedAction.targetId).name} />
+        )}
         <div className="choice-grid">
           {availableActions.map((type) => (
             <button
@@ -262,7 +308,12 @@ function PlayerControl({ player, engine, onChange }: { player: Player; engine: G
             </button>
           ))}
         </div>
-        <TargetSelect player={player} value={targetId} engine={engine} onChange={(next) => setTargetByPlayer({ ...targetByPlayer, [player.id]: next })} />
+        <TargetSelect
+          player={player}
+          value={targetId}
+          engine={engine}
+          onChange={(next) => setTargetByPlayer({ ...targetByPlayer, [player.id]: next })}
+        />
       </div>
     );
   }
@@ -270,7 +321,8 @@ function PlayerControl({ player, engine, onChange }: { player: Player; engine: G
   if (state.phase === 'plea') {
     return (
       <div className="manual-card">
-        <h3>{player.name} 弁明 / {roleLabel(player)}</h3>
+        <ControlHeader player={player} title="弁明カード" engine={engine} />
+        <SelectionStatus label="選択済み" value={state.pleas[player.id] ?? '未選択'} />
         <select
           value={state.pleas[player.id] ?? ''}
           onChange={(event) => {
@@ -289,16 +341,29 @@ function PlayerControl({ player, engine, onChange }: { player: Player; engine: G
     const spyCanCoin = player.role === 'spy' && !player.hasUsedCoin;
     return (
       <div className="manual-card">
-        <h3>{player.name} 投票 / {roleLabel(player)}</h3>
-        <TargetSelect
-          player={player}
-          value={state.votes[player.id]?.targetId ?? targetId}
-          engine={engine}
-          onChange={(next) => {
-            engine.submitVote({ voterId: player.id, targetId: next });
-            onChange();
-          }}
+        <ControlHeader player={player} title="疑惑投票" engine={engine} />
+        <SelectionStatus
+          label="投票先"
+          value={state.votes[player.id] ? engine.getPlayer(state.votes[player.id].targetId).name : '未選択'}
         />
+        <div className="choice-grid">
+          {engine.state.players
+            .filter((candidate) => candidate.id !== player.id)
+            .map((candidate) => (
+              <button
+                type="button"
+                key={candidate.id}
+                className={state.votes[player.id]?.targetId === candidate.id ? 'choice selected' : 'choice'}
+                onClick={() => {
+                  engine.submitVote({ voterId: player.id, targetId: candidate.id });
+                  onChange();
+                }}
+              >
+                <Vote size={16} />
+                <span>{candidate.name}</span>
+              </button>
+            ))}
+        </div>
         <button
           type="button"
           className="icon-button"
@@ -319,7 +384,8 @@ function PlayerControl({ player, engine, onChange }: { player: Player; engine: G
     const plans = branchOptions(engine.state.branchState.condition);
     return (
       <div className="manual-card">
-        <h3>{player.name} 作戦投票 / {roleLabel(player)}</h3>
+        <ControlHeader player={player} title="作戦投票" engine={engine} />
+        <SelectionStatus label="選択済み" value={state.branchVotes[player.id] ? branchPlanLabel(state.branchVotes[player.id].plan) : '未選択'} />
         <div className="choice-grid">
           {plans.map((plan) => (
             <button
@@ -342,6 +408,27 @@ function PlayerControl({ player, engine, onChange }: { player: Player; engine: G
   }
 
   return null;
+}
+
+function ControlHeader({ player, title, engine }: { player: Player; title: string; engine: GameEngine }) {
+  return (
+    <div className="control-header">
+      <div>
+        <span className="section-kicker">{player.name}</span>
+        <h3>{title} / {roleLabel(player)}</h3>
+      </div>
+      <span className="control-state">{engine.controlledByCpu(player) ? '自動' : '手動'}</span>
+    </div>
+  );
+}
+
+function SelectionStatus({ label, value }: { label: string; value: string }) {
+  return (
+    <div className={value === '未選択' ? 'selection-status empty' : 'selection-status'}>
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
 }
 
 function TargetSelect({
@@ -464,7 +551,8 @@ function InferenceHintsPanel({ engine }: { engine: GameEngine }) {
           return (
             <div key={hint.playerId}>
               <strong>{player.name}</strong>
-              <span>{suspicionStars(hint.suspicion)} / {hint.reason}</span>
+              <span>疑惑値 {hint.suspicion} / {suspicionStars(hint.suspicion)}</span>
+              <em>{hint.reason}</em>
             </div>
           );
         })}
@@ -488,6 +576,55 @@ function LogPanel({ title, logs }: { title: string; logs: string[] }) {
   );
 }
 
+function RoundLogTimeline({ engine }: { engine: GameEngine }) {
+  const rounds = engine.state.history.filter((round) => round.publicLogs.length > 0);
+  const latestRound = rounds.at(-1);
+  return (
+    <div className="log-panel round-timeline">
+      <h2>ラウンド別公開ログ</h2>
+      {!latestRound ? (
+        <p className="muted">ラウンド結果はまだありません。</p>
+      ) : (
+        <div className="round-log-stack">
+          <RoundLogCard round={latestRound.round} logs={latestRound.publicLogs} latest />
+          {rounds.slice(0, -1).reverse().map((round) => (
+            <RoundLogCard key={round.round} round={round.round} logs={round.publicLogs} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RoundLogCard({ round, logs, latest = false }: { round: number; logs: string[]; latest?: boolean }) {
+  return (
+    <article className={latest ? 'round-log-card latest' : 'round-log-card'}>
+      <div className="round-log-title">
+        <strong>Round {round}</strong>
+        {latest && <span>最新</span>}
+      </div>
+      <ol>
+        {logs.map((log, index) => <li key={`${round}-${index}`}>{log}</li>)}
+      </ol>
+    </article>
+  );
+}
+
+function DebugLogPanel({ logs }: { logs: string[] }) {
+  return (
+    <details className="debug-panel">
+      <summary>開発者用 debugLog ({logs.length})</summary>
+      {logs.length === 0 ? (
+        <p className="muted">debugLogはまだありません。</p>
+      ) : (
+        <ol>
+          {logs.slice(-40).map((log, index) => <li key={`${log}-${index}`}>{log}</li>)}
+        </ol>
+      )}
+    </details>
+  );
+}
+
 function branchOptions(condition?: string): BranchPlan[] {
   if (condition === 'smooth') return ['normal', 'overdrive'];
   if (condition === 'hard') return ['normal', 'emergency'];
@@ -500,6 +637,32 @@ function phaseLabel(phase: string): string {
   if (phase === 'vote') return '疑惑投票';
   if (phase === 'branch') return '中間作戦';
   return '結果発表';
+}
+
+function phaseInstruction(phase: string): string {
+  if (phase === 'action') return '行動を選んでください';
+  if (phase === 'plea') return '弁明カードを選んでください';
+  if (phase === 'vote') return '怪しい砲台に投票してください';
+  if (phase === 'branch') return '作戦を投票してください';
+  return '結果を確認してください';
+}
+
+function phaseInputLabel(phase: string): string {
+  if (phase === 'action') return '行動入力';
+  if (phase === 'plea') return '弁明入力';
+  if (phase === 'vote') return '投票入力';
+  if (phase === 'branch') return '作戦投票';
+  return '完了';
+}
+
+function phaseReadyCount(engine: GameEngine): { ready: number; total: number } {
+  const state = engine.state;
+  const total = state.players.length;
+  if (state.phase === 'action') return { ready: Object.keys(state.submittedActions).length, total };
+  if (state.phase === 'plea') return { ready: Object.keys(state.pleas).length, total };
+  if (state.phase === 'vote') return { ready: Object.keys(state.votes).length, total };
+  if (state.phase === 'branch') return { ready: Object.keys(state.branchVotes).length, total };
+  return { ready: total, total };
 }
 
 createRoot(document.getElementById('root')!).render(<App />);
