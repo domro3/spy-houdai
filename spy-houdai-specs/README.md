@@ -21,10 +21,11 @@
 開発ロードマップ：
 
 1. **1PC完結プロトタイプ**
-2. **中央画面＋プレイヤー画面分離**
-3. **CPU補充・1人練習モード**
-4. **ローカルネットワーク対応**
-5. **オンライン対応**
+2. **権利リスクレビュー**
+3. **中央画面＋プレイヤー画面分離**
+4. **CPU補充・1人練習モード**
+5. **ローカルネットワーク対応**
+6. **オンライン対応**
 
 最初のCodex依頼では、**1PC完結のMVPプロトタイプ**を作成します。
 
@@ -41,8 +42,10 @@ spy-houdai-specs/
     04_cpu_design.md
     05_screen_design.md
     06_architecture.md
+    07_rights_policy.md
   tasks/
     phase1_local_prototype_tasks.md
+    phase1_5_rights_review_tasks.md
   prompts/
     codex_initial_prompt.md
     codex_followup_prompt.md
@@ -82,3 +85,13 @@ spy-houdai-specs/
 - ランキング
 - 複雑なアニメーション
 - 本格的なグラフィック
+
+## Phase 1.5で確認すること
+
+Phase 1の1PCプロトタイプ完了後、公開・配布・配信者テストの前に `docs/07_rights_policy.md` と `tasks/phase1_5_rights_review_tasks.md` を確認します。
+
+- UI文言・ログ文言・称号名が既存作品に寄りすぎていないか
+- 画像・BGM・SE・フォント・アイコンの出所とライセンス
+- タイトル・主要アイテム名・作戦名の商標検索
+- 他ゲーム名や「○○風」表現を公式説明で前面に出していないか
+- 生成AI素材を使う場合の生成記録
