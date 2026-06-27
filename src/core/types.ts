@@ -63,6 +63,10 @@ export interface PlayerStats {
   healing: number;
   mitigated: number;
   sabotage: number;
+  sabotageAttack: number;
+  sabotageDefense: number;
+  sabotageRepair: number;
+  bossSyncedSabotage: number;
   bossHealing: number;
   logScrambles: number;
   robotContribution: number;

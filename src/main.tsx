@@ -229,6 +229,9 @@ function CentralStatusPanel({
   const bossTarget = state.currentBossAction.targetPlayerId
     ? engine.getPlayer(state.currentBossAction.targetPlayerId)
     : undefined;
+  const latestRound = state.history.at(-1);
+  const bossDelta = latestRound ? latestRound.bossHealing - latestRound.totalDamage : undefined;
+  const baseDelta = latestRound ? latestRound.repairs - latestRound.baseDamage : undefined;
   return (
     <section className="central-panel" aria-label="中央状況">
       <div className="central-header">
@@ -240,8 +243,8 @@ function CentralStatusPanel({
       </div>
 
       <div className="status-grid">
-        <BattleGauge label="ボスHP" value={state.bossHp} max={state.bossMaxHp} tone="boss" />
-        <BattleGauge label="拠点耐久" value={state.baseHp} max={state.baseMaxHp} tone="base" />
+        <BattleGauge label="ボスHP" value={state.bossHp} max={state.bossMaxHp} delta={bossDelta} tone="boss" />
+        <BattleGauge label="拠点耐久" value={state.baseHp} max={state.baseMaxHp} delta={baseDelta} tone="base" />
       </div>
 
       <div className="central-facts">
@@ -368,6 +371,7 @@ function PlayerControl({ player, engine, onChange }: { player: Player; engine: G
             onChange={(next) => setTargetByPlayer({ ...targetByPlayer, [player.id]: next })}
           />
         )}
+        <PrivateLogPeek player={player} engine={engine} />
       </div>
     );
   }
@@ -387,6 +391,7 @@ function PlayerControl({ player, engine, onChange }: { player: Player; engine: G
           <option value="" disabled>弁明カードを選択</option>
           {PLEA_CARDS.map((card) => <option key={card} value={card}>{card}</option>)}
         </select>
+        <PrivateLogPeek player={player} engine={engine} />
       </div>
     );
   }
@@ -432,6 +437,7 @@ function PlayerControl({ player, engine, onChange }: { player: Player; engine: G
             怪しいコイン
           </button>
         )}
+        <PrivateLogPeek player={player} engine={engine} />
       </div>
     );
   }
@@ -459,6 +465,7 @@ function PlayerControl({ player, engine, onChange }: { player: Player; engine: G
             </button>
           ))}
         </div>
+        <PrivateLogPeek player={player} engine={engine} />
       </div>
     );
   }
@@ -483,6 +490,19 @@ function SelectionStatus({ label, value }: { label: string; value: string }) {
     <div className={value === '未選択' ? 'selection-status empty' : 'selection-status'}>
       <span>{label}</span>
       <strong>{value}</strong>
+    </div>
+  );
+}
+
+function PrivateLogPeek({ player, engine }: { player: Player; engine: GameEngine }) {
+  const logs = engine.state.privateLogs[player.id]?.slice(-3) ?? [];
+  if (logs.length === 0) return null;
+  return (
+    <div className="private-log-peek">
+      <span>個別ログ</span>
+      <ol>
+        {logs.map((log, index) => <li key={`${player.id}-private-${index}-${log}`}>{log}</li>)}
+      </ol>
     </div>
   );
 }
@@ -561,18 +581,47 @@ function PlayerCard({ player, engine, onChange }: { player: Player; engine: Game
   );
 }
 
-function BattleGauge({ label, value, max, tone }: { label: string; value: number; max: number; tone: 'boss' | 'base' }) {
+function BattleGauge({
+  label,
+  value,
+  max,
+  delta,
+  tone,
+}: {
+  label: string;
+  value: number;
+  max: number;
+  delta?: number;
+  tone: 'boss' | 'base';
+}) {
   return (
     <div className="gauge-panel">
       <div>
         <span>{label}</span>
-        <strong>{value} / {max}</strong>
+        <strong>
+          {value}/{max}
+          {delta !== undefined && (
+            <em className={`gauge-delta ${deltaTone(delta)}`}>{formatDelta(delta)}</em>
+          )}
+        </strong>
       </div>
       <div className="gauge-track">
         <span className={tone} style={{ width: percent(value, max) }} />
       </div>
     </div>
   );
+}
+
+function formatDelta(delta: number): string {
+  if (delta > 0) return `(+${delta})`;
+  if (delta < 0) return `(${delta})`;
+  return '(±0)';
+}
+
+function deltaTone(delta: number): 'positive' | 'negative' | 'neutral' {
+  if (delta > 0) return 'positive';
+  if (delta < 0) return 'negative';
+  return 'neutral';
 }
 
 function ResultView({ engine }: { engine: GameEngine }) {

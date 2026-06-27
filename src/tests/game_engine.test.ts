@@ -239,6 +239,44 @@ describe('Party Mode', () => {
     expect(summary.spyBehindWins).toBe(0);
     expect(summary.suspiciousCoinUses).toBe(0);
   });
+
+  it('shows sabotage feedback privately while keeping public Party logs short', () => {
+    const engine = new GameEngine({
+      totalPlayers: 4,
+      humanPlayers: 0,
+      seed: 63,
+      spyId: 'p4',
+      mode: 'party',
+    });
+    engine.state.currentBossAction = { type: 'big_charge' };
+    engine.state.bossHp = 1;
+
+    engine.submitAction({ playerId: 'p1', type: 'defend' });
+    engine.submitAction({ playerId: 'p2', type: 'normal_attack' });
+    engine.submitAction({ playerId: 'p3', type: 'repair' });
+    engine.submitAction({ playerId: 'p4', type: 'sabotage', targetId: 'p1' });
+    const summary = engine.resolveActions();
+
+    expect(summary.publicLogs).toHaveLength(4);
+    expect(summary.publicLogs[0]).toContain('どこかにノイズ');
+    expect(engine.state.privateLogs.p1.join('\n')).toContain('あなたが邪魔されました');
+    expect(engine.state.privateLogs.p1.join('\n')).toContain('バリア');
+    expect(engine.state.privateLogs.p4.join('\n')).toContain('妨害成功');
+    expect(engine.state.privateLogs.p4.join('\n')).toContain('大技チャージ');
+    expect(engine.spy().stats.sabotageDefense).toBe(1);
+    expect(engine.spy().stats.bossSyncedSabotage).toBe(1);
+
+    for (const player of engine.state.players) {
+      engine.submitVote({
+        voterId: player.id,
+        targetId: player.id === 'p1' ? 'p2' : 'p1',
+      });
+    }
+    engine.resolveVotes();
+    const awardTitles = engine.state.result?.awards.map((award) => award.title) ?? [];
+    expect(awardTitles).toContain('妨害職人');
+    expect(awardTitles).toContain('バリアクラッシャー');
+  });
 });
 
 describe('log separation', () => {

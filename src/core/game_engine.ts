@@ -49,6 +49,10 @@ const createStats = (): PlayerStats => ({
   healing: 0,
   mitigated: 0,
   sabotage: 0,
+  sabotageAttack: 0,
+  sabotageDefense: 0,
+  sabotageRepair: 0,
+  bossSyncedSabotage: 0,
   bossHealing: 0,
   logScrambles: 0,
   robotContribution: 0,
@@ -716,7 +720,9 @@ export class GameEngine {
       ? `拠点を${summary.repairs}修理。残り耐久${this.state.baseHp}。`
       : `拠点耐久は残り${this.state.baseHp}。`;
     const logs = [
-      `第${summary.round}ラウンド: ${bossActionLabel(this.state.currentBossAction.type)}。`,
+      `第${summary.round}ラウンド: ${bossActionLabel(this.state.currentBossAction.type)}。${
+        summary.sabotageCount > 0 ? 'どこかにノイズ。' : ''
+      }`,
       attackLog,
       bossEventLog,
       repairLog,
@@ -742,11 +748,71 @@ export class GameEngine {
       summary.sabotageCount += 1;
       const spy = this.getPlayer(action.playerId);
       const target = this.getPlayer(action.targetId);
-      this.state.privateLogs[target.id].push('外部ノイズにより行動効率が低下しました。');
+      const targetAction = this.state.submittedActions[target.id]?.type;
+      if (this.state.mode === 'party') {
+        this.writePartySabotageFeedback(spy, target, targetAction);
+      } else {
+        this.state.privateLogs[target.id].push('外部ノイズにより行動効率が低下しました。');
+      }
       this.state.debugLogs.push(`[debug] sabotage target: ${spy.name} -> ${target.name}`);
       spy.stats.sabotage += 1;
     }
     return sabotagedTargets;
+  }
+
+  private writePartySabotageFeedback(
+    spy: Player,
+    target: Player,
+    targetAction?: ActionType,
+  ): void {
+    this.recordPartySabotageStats(spy, targetAction);
+    const combo = this.partySabotageCombo(targetAction);
+    const targetActionLabel = targetAction ? actionLabel(targetAction, 'party') : '行動';
+    const targetLog = combo?.targetLog ?? partySabotageTargetLog(targetAction);
+    const spyLog = combo?.spyLog ?? `妨害成功: ${target.name}の${targetActionLabel}を乱しました。`;
+
+    this.state.privateLogs[target.id].push(`あなたが邪魔されました。${targetLog}`);
+    this.state.privateLogs[spy.id].push(spyLog);
+  }
+
+  private recordPartySabotageStats(spy: Player, targetAction?: ActionType): void {
+    if (targetAction === 'normal_attack' || targetAction === 'fake_attack' || targetAction === 'charge_attack') {
+      spy.stats.sabotageAttack += 1;
+      return;
+    }
+    if (targetAction === 'defend') {
+      spy.stats.sabotageDefense += 1;
+      return;
+    }
+    if (targetAction === 'repair') {
+      spy.stats.sabotageRepair += 1;
+    }
+  }
+
+  private partySabotageCombo(targetAction?: ActionType): { targetLog: string; spyLog: string } | undefined {
+    const bossAction = this.state.currentBossAction.type;
+    if (bossAction === 'big_charge' && targetAction === 'defend') {
+      this.spy().stats.bossSyncedSabotage += 1;
+      return {
+        targetLog: '大技の直前にバリアへノイズ。防御効果が弱まっています。',
+        spyLog: '妨害成功: 大技チャージ中のバリアを崩しました。',
+      };
+    }
+    if (bossAction === 'armor_regen' && (targetAction === 'normal_attack' || targetAction === 'fake_attack')) {
+      this.spy().stats.bossSyncedSabotage += 1;
+      return {
+        targetLog: '砲身がブレました。装甲再生を止める火力が出にくくなっています。',
+        spyLog: '妨害成功: 装甲再生中の火力を落としました。',
+      };
+    }
+    if (this.state.baseHp <= 35 && targetAction === 'repair') {
+      this.spy().stats.bossSyncedSabotage += 1;
+      return {
+        targetLog: '修理アームが一瞬停止。拠点ピンチで回復量が少なくなっています。',
+        spyLog: '妨害成功: 拠点ピンチの修理を止めました。',
+      };
+    }
+    return undefined;
   }
 
   private applyDamage(
@@ -1152,6 +1218,34 @@ export class GameEngine {
       playerId: byStat('healing').id,
       reason: '拠点修理量が最大でした',
     });
+    if (spy.stats.sabotage > 0) {
+      awards.push({
+        title: '妨害職人',
+        playerId: spy.id,
+        reason: `${spy.stats.sabotage}回の妨害で場を揺らしました`,
+      });
+    }
+    if (spy.stats.sabotageDefense > 0) {
+      awards.push({
+        title: 'バリアクラッシャー',
+        playerId: spy.id,
+        reason: `${spy.stats.sabotageDefense}回、防御役のバリアを乱しました`,
+      });
+    }
+    if (spy.stats.sabotageAttack > 0) {
+      awards.push({
+        title: '火力泥棒',
+        playerId: spy.id,
+        reason: `${spy.stats.sabotageAttack}回、砲撃出力を落としました`,
+      });
+    }
+    if (spy.stats.sabotageRepair > 0) {
+      awards.push({
+        title: '修理止めの名人',
+        playerId: spy.id,
+        reason: `${spy.stats.sabotageRepair}回、修理アームを止めました`,
+      });
+    }
     awards.push({
       title: result.finalVoteTargetId === spy.id ? '名探偵砲台' : '潜伏成功',
       playerId: result.finalVoteTargetId === spy.id
@@ -1237,6 +1331,19 @@ function estimateRobotContribution(type: ActionType): number {
   if (type === 'defend' || type === 'repair') return 2;
   if (type === 'scan') return 1;
   return 1;
+}
+
+function partySabotageTargetLog(targetAction?: ActionType): string {
+  if (targetAction === 'normal_attack' || targetAction === 'fake_attack' || targetAction === 'charge_attack') {
+    return '砲身がブレました。攻撃出力が下がっています。';
+  }
+  if (targetAction === 'defend') {
+    return 'バリアにノイズ。防御効果が弱まっています。';
+  }
+  if (targetAction === 'repair') {
+    return '修理アームが一瞬停止。回復量が少なくなっています。';
+  }
+  return '操作系にノイズ。行動が少し弱まりました。';
 }
 
 function pleaContradictsAction(plea: string, action?: ActionType): boolean {
