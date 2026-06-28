@@ -4,7 +4,7 @@ import { Bot, Play, RefreshCcw } from 'lucide-react';
 import { GameEngine } from './core/game_engine';
 import type { GameMode } from './core/types';
 import { fillCpuActions, fillCpuBranchVotes, fillCpuPleas, fillCpuVotes, runCpuGame } from './cpu/autoplay';
-import { useLocalHostSession, type LocalHostSessionStatus } from './local_sync/host_session';
+import { useLocalHostSession } from './local_sync/host_session';
 import { useLocalPlayerClient } from './local_sync/player_client';
 import { DebugPanel } from './screens/DebugPanel';
 import { HostScreen } from './screens/HostScreen';
@@ -18,14 +18,14 @@ const INITIAL_LOCAL_ROUTE = parseLocalRoute(window.location.pathname);
 
 function App() {
   const [totalPlayers, setTotalPlayers] = useState(5);
-  const [humanPlayers, setHumanPlayers] = useState(1);
+  const [humanPlayers, setHumanPlayers] = useState(5);
   const [seed, setSeed] = useState(20260627);
   const [mode, setMode] = useState<GameMode>('party');
   const [localRoute, setLocalRoute] = useState(INITIAL_LOCAL_ROUTE);
   const [activePlayerId, setActivePlayerId] = useState(INITIAL_LOCAL_ROUTE.playerId ?? 'p1');
   const [engine, setEngine] = useState(() => new GameEngine({
     totalPlayers: 5,
-    humanPlayers: 1,
+    humanPlayers: 5,
     seed: 20260627,
     mode: 'party',
   }));
@@ -126,10 +126,15 @@ function App() {
           <p className="eyebrow">全員砲台、1人だけスパイ。</p>
           <h1>スパイ砲台</h1>
         </div>
-        {screenView === 'player' || screenView === 'debug' ? (
+        {screenView === 'board' ? (
           <div className="setup-controls readonly-route-note">
-            <strong>{screenView === 'player' ? 'Player client view' : 'Debug view'}</strong>
-            <span>ゲーム操作は /board または / のローカル開発シェルで行います。</span>
+            <strong>Public board</strong>
+            <span>プレイヤー入力が揃うと自動で進行します。手動操作は /debug に分離しています。</span>
+          </div>
+        ) : screenView === 'player' ? (
+          <div className="setup-controls readonly-route-note">
+            <strong>Player client view</strong>
+            <span>自分の行動・投票だけを送信します。進行は /board が自動で行います。</span>
           </div>
         ) : (
           <div className="setup-controls">
@@ -185,7 +190,7 @@ function App() {
               <Play size={18} />
               開始
             </button>
-            {screenView === 'board' && (
+            {screenView === 'debug' && (
               <>
                 <button type="button" className="icon-button" onClick={autoFillCurrentPhase} disabled={state.phase === 'finished'}>
                   <Bot size={18} />
@@ -216,7 +221,6 @@ function App() {
         activePlayerId={safeActivePlayerId}
         onNavigate={navigateLocal}
       />
-      {screenView === 'board' && <SyncStatusPanel status={hostSync.status} />}
 
       {(localRoute.invalidPath || localRoute.invalidPlayerId || (localRoute.view === 'player' && !routePlayerExists)) && (
         <RouteNotice
@@ -228,6 +232,7 @@ function App() {
 
       <section className={`screen-shell ${screenView}`}>
         {(screenView === 'split' || screenView === 'board') && <HostScreen engine={engine} />}
+        {screenView === 'debug' && <HostScreen engine={engine} />}
         {screenView === 'split' && (
           <PlayerScreen
             engine={engine}
@@ -245,26 +250,6 @@ function App() {
 
       {(screenView === 'split' || screenView === 'debug') && <DebugPanel engine={engine} />}
     </main>
-  );
-}
-
-function SyncStatusPanel({ status }: { status?: LocalHostSessionStatus }) {
-  if (!status) {
-    return (
-      <section className="sync-status-panel waiting">
-        <strong>Local Sync</strong>
-        <span>ホスト同期を準備中です。</span>
-      </section>
-    );
-  }
-  return (
-    <section className={status.available ? 'sync-status-panel' : 'sync-status-panel warning'}>
-      <strong>Local Sync</strong>
-      <span>{status.available ? 'BroadcastChannel active' : 'BroadcastChannel unavailable'}</span>
-      <span>Session {status.sessionId.slice(0, 8)}</span>
-      <span>Players {status.connectedPlayers.length > 0 ? status.connectedPlayers.join(', ') : 'none'}</span>
-      <span>{status.lastEvent}</span>
-    </section>
   );
 }
 
@@ -294,7 +279,7 @@ function LocalRouteBar({
     <nav className="local-route-bar" aria-label="ローカル画面切替">
       <div>
         <strong>ローカル画面プロトタイプ</strong>
-        <span>同じ端末内の表示確認です。別タブ間のゲーム状態同期はまだありません。</span>
+        <span>同じ端末内の別タブをBroadcastChannelで同期します。LAN/オンライン通信はまだありません。</span>
       </div>
       <div className="local-route-links">
         {routeLinks.map((link) => (

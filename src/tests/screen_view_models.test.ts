@@ -37,6 +37,9 @@ describe('screen privacy guardrails', () => {
     expect(serialized).not.toContain('秘密ログ');
     expect(serialized).not.toContain('[debug]');
     expect(serialized).not.toContain('boss_heal');
+    expect(serialized).not.toContain('CPU入力');
+    expect(serialized).not.toContain('CPU完走');
+    expect(serialized).not.toContain('解決');
   });
 
   it('lets PlayerScreen projection show only the selected player private surface', () => {
