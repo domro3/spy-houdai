@@ -539,6 +539,13 @@ dt {
   animation-delay: 240ms;
 }
 
+.prototype-asset {
+  display: block;
+  max-width: 100%;
+  user-select: none;
+  pointer-events: none;
+}
+
 .base-warning {
   display: flex;
   justify-content: space-between;
@@ -635,6 +642,7 @@ dt {
   box-shadow:
     inset 0 -18px 0 rgb(23 18 31 / 18%),
     0 22px 38px rgb(0 0 0 / 24%);
+  overflow: visible;
 }
 
 .boss-core::before,
@@ -646,6 +654,7 @@ dt {
   height: 48%;
   border-radius: 999px 999px 8px 8px;
   background: #822632;
+  z-index: 1;
 }
 
 .boss-core::before {
@@ -666,6 +675,7 @@ dt {
   border-radius: 999px;
   background: var(--warning-yellow);
   box-shadow: 0 0 16px rgb(246 201 69 / 68%);
+  z-index: 2;
 }
 
 .boss-eye.left {
@@ -685,6 +695,7 @@ dt {
   border-radius: 999px;
   background: #20242b;
   transform: translateX(-50%);
+  z-index: 2;
 }
 
 .boss-core-light {
@@ -697,6 +708,32 @@ dt {
   background: #fffefa;
   opacity: 0.5;
   transform: translateX(-50%);
+  z-index: 2;
+}
+
+.boss-asset {
+  position: absolute;
+  z-index: 4;
+  inset: -38%;
+  width: 176%;
+  height: 176%;
+  object-fit: contain;
+  mix-blend-mode: multiply;
+  filter: brightness(1.34) contrast(1.12) drop-shadow(0 22px 22px rgb(0 0 0 / 24%));
+  transform: translateX(8%);
+}
+
+.boss-core:has(.boss-asset) {
+  background: transparent;
+  box-shadow: none;
+}
+
+.boss-core:has(.boss-asset)::before,
+.boss-core:has(.boss-asset)::after,
+.boss-core:has(.boss-asset) .boss-eye,
+.boss-core:has(.boss-asset) .boss-cannon,
+.boss-core:has(.boss-asset) .boss-core-light {
+  display: none;
 }
 
 .boss-core.hit {
@@ -715,6 +752,7 @@ dt {
 }
 
 .base-core {
+  position: relative;
   display: grid;
   grid-template-columns: repeat(3, minmax(34px, 1fr));
   gap: 9px;
@@ -726,10 +764,12 @@ dt {
     linear-gradient(180deg, rgb(53 194 216 / 12%), rgb(47 128 237 / 18%)),
     rgb(255 254 250 / 9%);
   box-shadow: inset 0 0 0 1px rgb(255 254 250 / 12%);
+  overflow: hidden;
 }
 
 .base-core span {
   position: relative;
+  z-index: 1;
   min-height: 58px;
   border-radius: 10px 10px 4px 4px;
   background: linear-gradient(145deg, #35c2d8, #345995);
@@ -749,6 +789,21 @@ dt {
 
 .base-core span:nth-child(2) {
   min-height: 82px;
+}
+
+.base-core-asset {
+  position: absolute;
+  z-index: 3;
+  inset: -42px -6px -30px;
+  width: calc(100% + 12px);
+  height: calc(100% + 72px);
+  object-fit: contain;
+  mix-blend-mode: multiply;
+  filter: brightness(1.12) contrast(1.06) drop-shadow(0 12px 14px rgb(0 0 0 / 18%));
+}
+
+.base-core:has(.base-core-asset) > span {
+  opacity: 0;
 }
 
 .base-core.hit {
@@ -818,6 +873,20 @@ dt {
       rgb(23 18 31 / 26%) 9px
     );
   animation: sabotage-glitch 720ms steps(5, end);
+}
+
+.lane-noise .noise-overlay-asset,
+.sabotage-noise .noise-overlay-asset {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  mix-blend-mode: multiply;
+  opacity: 0;
+}
+
+.lane-noise.active .noise-overlay-asset,
+.sabotage-noise.active .noise-overlay-asset {
+  opacity: 0.55;
 }
 
 .lane-shield.active {
@@ -1338,6 +1407,49 @@ dt {
   border: 1px solid rgb(35 39 47 / 10%);
 }
 
+.public-turret-visual {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 78px;
+  margin: 10px 0;
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgb(47 128 237 / 8%), rgb(53 194 216 / 7%)),
+    #f6fafb;
+  overflow: hidden;
+}
+
+.turret-avatar-asset {
+  width: min(112px, 92%);
+  height: 76px;
+  object-fit: contain;
+  mix-blend-mode: multiply;
+  filter: drop-shadow(0 8px 8px rgb(35 39 47 / 12%));
+}
+
+.turret-avatar-fallback,
+.terminal-turret-fallback {
+  position: relative;
+  display: block;
+  width: 58px;
+  height: 38px;
+  border-radius: 22px 22px 10px 10px;
+  background: linear-gradient(135deg, #345995, #2a9d8f);
+}
+
+.turret-avatar-fallback::after,
+.terminal-turret-fallback::after {
+  content: "";
+  position: absolute;
+  right: -26px;
+  top: 14px;
+  width: 34px;
+  height: 10px;
+  border-radius: 999px;
+  background: #1c2027;
+}
+
 .public-player-card.sync-ready {
   border-color: rgb(54 179 126 / 34%);
   background: #f7fff9;
@@ -1482,6 +1594,26 @@ dt {
 
 .player-identity-panel.role-spy {
   border-color: rgb(123 63 242 / 24%);
+}
+
+.player-step-visual {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 86px;
+  height: 62px;
+  border-radius: 8px;
+  background: rgb(255 254 250 / 74%);
+  border: 1px solid rgb(35 39 47 / 9%);
+  overflow: hidden;
+}
+
+.terminal-turret-asset {
+  width: 78px;
+  height: 58px;
+  object-fit: contain;
+  mix-blend-mode: multiply;
+  filter: drop-shadow(0 8px 8px rgb(35 39 47 / 12%));
 }
 
 .private-role-card {

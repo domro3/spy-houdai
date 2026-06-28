@@ -9,6 +9,8 @@ import {
   Wrench,
   Zap,
 } from 'lucide-react';
+import { PrototypeAssetImage } from '../assets/PrototypeAssetImage';
+import { turretPrototypeAsset } from '../assets/prototype_assets';
 import type { ActionSubmission, ActionType, BranchPlan, BranchVoteSubmission, VoteSubmission } from '../core/types';
 import type { LocalPlayerClientState } from '../local_sync/player_client';
 import type { PlayerScreenViewModel } from './screen_view_models';
@@ -177,6 +179,14 @@ function PlayerStepBanner({ view }: { view: PlayerScreenViewModel }) {
       <div>
         <span>{playerStepKicker(view)}</span>
         <strong>{submitted ? playerSubmittedTitle(view) : playerStepTitle(view)}</strong>
+      </div>
+      <div className="player-step-visual" aria-label={`${view.name}の砲台ユニット`}>
+        <PrototypeAssetImage
+          src={turretPrototypeAsset(view.id)}
+          alt="砲台ユニット"
+          className="terminal-turret-asset"
+          fallback={<span className="terminal-turret-fallback" />}
+        />
       </div>
       <em>{submitted ? '他プレイヤーの入力待ち。揃うと自動で戦況が進みます。' : playerStepBody(view)}</em>
     </section>

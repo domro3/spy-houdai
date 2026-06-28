@@ -1,3 +1,5 @@
+import { PrototypeAssetImage } from '../assets/PrototypeAssetImage';
+import { prototypeAssets, turretPrototypeAsset } from '../assets/prototype_assets';
 import { bossActionLabel, bossForecastLabel, GameEngine } from '../core/game_engine';
 import type { BossActionType, RoundSummary } from '../core/types';
 import {
@@ -197,11 +199,14 @@ function BattleTheater({ engine }: { engine: GameEngine }) {
           <span>巨大ボス</span>
           <strong>{state.boss.name}</strong>
         </div>
-        <div className={bossClasses} aria-hidden="true">
-          <span className="boss-eye left" />
-          <span className="boss-eye right" />
-          <span className="boss-cannon" />
-          <span className="boss-core-light" />
+        <div className={bossClasses}>
+          <PrototypeAssetImage
+            src={prototypeAssets.boss}
+            alt="ボス"
+            className="boss-asset"
+            fallback={null}
+          />
+          <BossFallbackVisual />
         </div>
         <TheaterHp label="BOSS HP" value={state.bossHp} max={state.bossMaxHp} tone="boss" />
         <div className={`danger-readout ${state.currentBossAction.type}`}>
@@ -213,7 +218,14 @@ function BattleTheater({ engine }: { engine: GameEngine }) {
 
       <div className="theater-lane" aria-hidden="true">
         <span className={latestRound?.totalDamage ? 'lane-shot active' : 'lane-shot'} />
-        <span className={latestRound?.sabotageCount ? 'lane-noise active' : 'lane-noise'} />
+        <span className={latestRound?.sabotageCount ? 'lane-noise active' : 'lane-noise'}>
+          <PrototypeAssetImage
+            src={prototypeAssets.noiseEffect}
+            alt=""
+            className="noise-overlay-asset"
+            fallback={null}
+          />
+        </span>
         <span className={latestRound?.defenseCount ? 'lane-shield active' : 'lane-shield'} />
       </div>
 
@@ -222,10 +234,14 @@ function BattleTheater({ engine }: { engine: GameEngine }) {
           <span>砲台基地</span>
           <strong>拠点耐久</strong>
         </div>
-        <div className={baseClasses} aria-hidden="true">
-          <span />
-          <span />
-          <span />
+        <div className={baseClasses}>
+          <PrototypeAssetImage
+            src={prototypeAssets.baseCore}
+            alt="拠点コア"
+            className="base-core-asset"
+            fallback={null}
+          />
+          <BaseFallbackVisual />
         </div>
         <TheaterHp label="BASE HP" value={state.baseHp} max={state.baseMaxHp} tone="base" />
         <div className="base-readout">
@@ -235,6 +251,27 @@ function BattleTheater({ engine }: { engine: GameEngine }) {
         </div>
       </div>
     </section>
+  );
+}
+
+function BossFallbackVisual() {
+  return (
+    <>
+      <span className="boss-eye left" />
+      <span className="boss-eye right" />
+      <span className="boss-cannon" />
+      <span className="boss-core-light" />
+    </>
+  );
+}
+
+function BaseFallbackVisual() {
+  return (
+    <>
+      <span />
+      <span />
+      <span />
+    </>
   );
 }
 
@@ -298,7 +335,14 @@ function BattleEventStrip({ engine }: { engine: GameEngine }) {
             sabotageActive ? 'active' : '',
             sabotagePressure ? 'pressure' : '',
           ].filter(Boolean).join(' ')}
-        />
+        >
+          <PrototypeAssetImage
+            src={prototypeAssets.noiseEffect}
+            alt=""
+            className="noise-overlay-asset"
+            fallback={null}
+          />
+        </div>
         <div className={guardActive ? 'shield-ring active' : 'shield-ring'} />
         <div
           className={[
@@ -455,6 +499,7 @@ function PublicPlayerCard({ player }: { player: HostPlayerView }) {
         <h3>{player.name}</h3>
         <span>{player.control}</span>
       </div>
+      <PublicTurretAvatar playerId={player.id} />
       <dl>
         <div>
           <dt>役職</dt>
@@ -470,6 +515,19 @@ function PublicPlayerCard({ player }: { player: HostPlayerView }) {
         </div>
       </dl>
     </article>
+  );
+}
+
+function PublicTurretAvatar({ playerId }: { playerId: string }) {
+  return (
+    <div className="public-turret-visual" aria-hidden="true">
+      <PrototypeAssetImage
+        src={turretPrototypeAsset(playerId)}
+        alt=""
+        className="turret-avatar-asset"
+        fallback={<span className="turret-avatar-fallback" />}
+      />
+    </div>
   );
 }
 
