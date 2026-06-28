@@ -28,6 +28,7 @@ import {
   canResolveCurrentPhase,
   phaseInstruction,
 } from './screen_state';
+import { createPlayerScreenViewModel } from './screen_view_models';
 
 const ACTION_ICONS: Record<ActionType, ReactNode> = {
   normal_attack: <Swords size={16} />,
@@ -126,11 +127,7 @@ function PlayerIdentityPanel({
   engine: GameEngine;
   onChange: () => void;
 }) {
-  const state = engine.state;
-  const selectedAction = state.submittedActions[player.id];
-  const recentRound = state.history.at(-1);
-  const recentAction = recentRound?.actions[player.id];
-  const wasSabotaged = recentRound?.sabotagedPlayerIds.includes(player.id);
+  const playerView = createPlayerScreenViewModel(engine, player.id);
 
   return (
     <section className="player-identity-panel">
@@ -144,7 +141,7 @@ function PlayerIdentityPanel({
       <dl>
         <div>
           <dt>あなたの役職</dt>
-          <dd>{roleLabel(player)}</dd>
+          <dd>{playerView.role}</dd>
         </div>
         <div>
           <dt>状態</dt>
@@ -152,15 +149,15 @@ function PlayerIdentityPanel({
         </div>
         <div>
           <dt>選択済み</dt>
-          <dd>{selectedAction ? actionLabel(selectedAction.type, state.mode) : '未選択'}</dd>
+          <dd>{playerView.selectedActionLabel}</dd>
         </div>
         <div>
           <dt>直近結果</dt>
-          <dd>{recentAction ? actionLabel(recentAction, state.mode) : '未解決'}</dd>
+          <dd>{playerView.recentActionLabel}</dd>
         </div>
         <div>
           <dt>個別反応</dt>
-          <dd>{wasSabotaged ? '妨害を受けました' : '通常'}</dd>
+          <dd>{playerView.wasSabotaged ? '妨害を受けました' : '通常'}</dd>
         </div>
       </dl>
       <div className="card-actions">

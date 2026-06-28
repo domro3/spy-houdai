@@ -1,9 +1,7 @@
 import { bossActionLabel, bossForecastLabel, GameEngine } from '../core/game_engine';
-import type { BossActionType, Player, RoundSummary } from '../core/types';
+import type { BossActionType, RoundSummary } from '../core/types';
 import {
-  controlLabel,
   percent,
-  roleLabel,
   suspicionStars,
 } from '../view/format';
 import {
@@ -15,17 +13,19 @@ import {
   phaseLabel,
   phaseReadyCount,
 } from './screen_state';
+import { createHostScreenViewModel, type HostPlayerView, type HostVoteView } from './screen_view_models';
 
 export function HostScreen({ engine }: { engine: GameEngine }) {
+  const hostView = createHostScreenViewModel(engine);
   return (
     <section className="host-screen" aria-label="ホスト画面">
       <CentralStatusPanel engine={engine} />
       {engine.state.phase === 'finished' && <ResultView engine={engine} />}
-      <HostVoteResult engine={engine} />
-      <PublicPlayerBoard engine={engine} />
+      <HostVoteResult votes={hostView.latestVotes} />
+      <PublicPlayerBoard players={hostView.players} />
       <div className="log-layout">
         <RoundLogTimeline engine={engine} />
-        <LogPanel title="公開ログ履歴" logs={engine.state.publicLogs.slice(-18)} />
+        <LogPanel title="公開ログ履歴" logs={hostView.publicLogs.slice(-18)} />
       </div>
     </section>
   );
@@ -246,9 +246,8 @@ function SuspicionBoard({ engine }: { engine: GameEngine }) {
   );
 }
 
-function HostVoteResult({ engine }: { engine: GameEngine }) {
-  const latestVotes = Object.entries(engine.state.history.at(-1)?.votes ?? {});
-  if (latestVotes.length === 0) return null;
+function HostVoteResult({ votes }: { votes: HostVoteView[] }) {
+  if (votes.length === 0) return null;
 
   return (
     <section className="host-public-panel">
@@ -257,10 +256,10 @@ function HostVoteResult({ engine }: { engine: GameEngine }) {
         <span>公開済みの集計</span>
       </div>
       <div className="public-vote-list">
-        {latestVotes.map(([playerId, count]) => (
-          <div key={playerId}>
-            <span>{engine.getPlayer(playerId).name}</span>
-            <strong>{count}票</strong>
+        {votes.map((vote) => (
+          <div key={vote.playerId}>
+            <span>{vote.name}</span>
+            <strong>{vote.count}票</strong>
           </div>
         ))}
       </div>
@@ -268,7 +267,7 @@ function HostVoteResult({ engine }: { engine: GameEngine }) {
   );
 }
 
-function PublicPlayerBoard({ engine }: { engine: GameEngine }) {
+function PublicPlayerBoard({ players }: { players: HostPlayerView[] }) {
   return (
     <section className="host-public-panel">
       <div className="board-heading">
@@ -276,47 +275,37 @@ function PublicPlayerBoard({ engine }: { engine: GameEngine }) {
         <span>役職と個別行動は進行中非公開</span>
       </div>
       <div className="public-player-grid">
-        {engine.state.players.map((player) => (
-          <PublicPlayerCard key={player.id} player={player} engine={engine} />
+        {players.map((player) => (
+          <PublicPlayerCard key={player.id} player={player} />
         ))}
       </div>
     </section>
   );
 }
 
-function PublicPlayerCard({ player, engine }: { player: Player; engine: GameEngine }) {
-  const state = engine.state;
+function PublicPlayerCard({ player }: { player: HostPlayerView }) {
   return (
     <article className="public-player-card">
       <div className="player-topline">
         <h3>{player.name}</h3>
-        <span>{controlLabel(player)}</span>
+        <span>{player.control}</span>
       </div>
       <dl>
         <div>
           <dt>役職</dt>
-          <dd>{state.phase === 'finished' ? roleLabel(player) : '非公開'}</dd>
+          <dd>{player.role}</dd>
         </div>
         <div>
           <dt>状態</dt>
-          <dd>{player.isConnected ? '接続中' : '砲台ロボ'}</dd>
+          <dd>{player.status}</dd>
         </div>
         <div>
           <dt>入力</dt>
-          <dd>{publicInputStatus(engine, player.id)}</dd>
+          <dd>{player.inputStatus}</dd>
         </div>
       </dl>
     </article>
   );
-}
-
-function publicInputStatus(engine: GameEngine, playerId: string): string {
-  const state = engine.state;
-  if (state.phase === 'action') return state.submittedActions[playerId] ? '入力済み' : '未入力';
-  if (state.phase === 'plea') return state.pleas[playerId] ? '入力済み' : '未入力';
-  if (state.phase === 'vote') return state.votes[playerId] ? '入力済み' : '未入力';
-  if (state.phase === 'branch') return state.branchVotes[playerId] ? '入力済み' : '未入力';
-  return '完了';
 }
 
 function BattleGauge({
