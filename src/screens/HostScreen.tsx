@@ -18,7 +18,7 @@ import { createHostScreenViewModel, type HostPlayerView, type HostVoteView } fro
 export function HostScreen({ engine }: { engine: GameEngine }) {
   const hostView = createHostScreenViewModel(engine);
   return (
-    <section className="host-screen" aria-label="ホスト画面">
+    <section className="host-screen" aria-label="戦況スクリーン">
       <CentralStatusPanel engine={engine} />
       {engine.state.phase === 'finished' && <ResultView engine={engine} />}
       <HostVoteResult votes={hostView.latestVotes} />
@@ -47,13 +47,14 @@ function CentralStatusPanel({ engine }: { engine: GameEngine }) {
     <section className="central-panel" aria-label="中央状況">
       <div className="central-header">
         <div>
-          <span className="section-kicker">ホスト画面</span>
+          <span className="section-kicker">戦況スクリーン</span>
           <h2>ROUND {Math.min(state.round, state.maxRounds)} / {state.maxRounds}</h2>
         </div>
         <div className="phase-pill">{phaseLabel(state.phase, state.mode)}</div>
       </div>
 
       <BoardFlowBanner engine={engine} readyCount={readyCount} />
+      <BattleTheater engine={engine} />
 
       <div className="status-grid">
         <BattleGauge label="ボスHP" value={state.bossHp} max={state.bossMaxHp} delta={bossDelta} tone="boss" />
@@ -123,7 +124,15 @@ function BoardFlowBanner({
         <span>{boardFlowKicker(state.phase)}</span>
         <strong>{boardFlowTitle(engine, readyCount)}</strong>
       </div>
-      <em>{boardFlowBody(engine, readyCount)}</em>
+      {allReady ? (
+        <div className="sync-countdown" aria-label="自動解決カウントダウン">
+          <span>3</span>
+          <span>2</span>
+          <span>1</span>
+        </div>
+      ) : (
+        <em>{boardFlowBody(engine, readyCount)}</em>
+      )}
     </div>
   );
 }
@@ -141,12 +150,12 @@ function boardFlowTitle(engine: GameEngine, readyCount: { ready: number; total: 
   const state = engine.state;
   const remaining = Math.max(0, readyCount.total - readyCount.ready);
   if (state.phase === 'finished') return '結果を確認してください';
-  if (readyCount.total > 0 && remaining === 0) return '全員入力完了 - 解決中';
-  if (state.phase === 'action') return `${remaining}人の行動待ち`;
-  if (state.mode === 'party' && state.phase === 'vote') return `${remaining}人のスパイ予想待ち`;
-  if (state.phase === 'vote') return `${remaining}人の投票待ち`;
-  if (state.phase === 'plea') return `${remaining}人の弁明待ち`;
-  if (state.phase === 'branch') return `${remaining}人の作戦投票待ち`;
+  if (readyCount.total > 0 && remaining === 0) return '作戦同期完了 - 解決中...';
+  if (state.phase === 'action') return `${remaining}基の作戦待ち`;
+  if (state.mode === 'party' && state.phase === 'vote') return `${remaining}基のスパイ予想待ち`;
+  if (state.phase === 'vote') return `${remaining}基の投票待ち`;
+  if (state.phase === 'plea') return `${remaining}基の弁明待ち`;
+  if (state.phase === 'branch') return `${remaining}基の作戦投票待ち`;
   return '進行待ち';
 }
 
@@ -154,11 +163,103 @@ function boardFlowBody(engine: GameEngine, readyCount: { ready: number; total: n
   const state = engine.state;
   const remaining = Math.max(0, readyCount.total - readyCount.ready);
   if (state.phase === 'finished') return 'スパイ正体と称号を公開しています。';
-  if (readyCount.total > 0 && remaining === 0) return 'Boardが自動でCPU補完と解決を行います。';
+  if (readyCount.total > 0 && remaining === 0) return '未接続砲台を自動同期し、戦闘結果を処理します。';
   if (state.phase === 'action' && state.mode === 'party') return partyBossHint(state.currentBossAction.type);
   if (state.phase === 'action') return '各プレイヤーは自分の画面で行動を選びます。';
   if (state.mode === 'party' && state.phase === 'vote') return '勝敗後のおまけ投票です。怪しい砲台を1人選びます。';
   return `${phaseInputLabel(state.phase, state.mode)}を各プレイヤー画面で送信します。`;
+}
+
+function BattleTheater({ engine }: { engine: GameEngine }) {
+  const state = engine.state;
+  const latestRound = state.history.at(-1);
+  const bossTarget = state.currentBossAction.targetPlayerId
+    ? engine.getPlayer(state.currentBossAction.targetPlayerId)
+    : undefined;
+  const bossWarning = state.phase === 'action' && state.currentBossAction.type === 'big_charge';
+  const bossClasses = [
+    'boss-core',
+    latestRound?.totalDamage ? 'hit' : '',
+    latestRound?.bossHealing ? 'heal' : '',
+    bossWarning ? 'charging' : '',
+  ].filter(Boolean).join(' ');
+  const baseClasses = [
+    'base-core',
+    latestRound?.baseDamage ? 'hit' : '',
+    latestRound?.repairs ? 'repairing' : '',
+    partyBaseWarning(state.baseHp)?.level ?? '',
+  ].filter(Boolean).join(' ');
+
+  return (
+    <section className="battle-theater" aria-label="公開戦況ステージ">
+      <div className="boss-arena">
+        <div className="theater-label">
+          <span>巨大ボス</span>
+          <strong>{state.boss.name}</strong>
+        </div>
+        <div className={bossClasses} aria-hidden="true">
+          <span className="boss-eye left" />
+          <span className="boss-eye right" />
+          <span className="boss-cannon" />
+          <span className="boss-core-light" />
+        </div>
+        <TheaterHp label="BOSS HP" value={state.bossHp} max={state.bossMaxHp} tone="boss" />
+        <div className={`danger-readout ${state.currentBossAction.type}`}>
+          <span>次の危険</span>
+          <strong>{bossActionLabel(state.currentBossAction.type)}</strong>
+          <em>{bossTarget ? `${bossTarget.name}へロックオン` : bossForecastLabel(state.currentBossAction.type)}</em>
+        </div>
+      </div>
+
+      <div className="theater-lane" aria-hidden="true">
+        <span className={latestRound?.totalDamage ? 'lane-shot active' : 'lane-shot'} />
+        <span className={latestRound?.sabotageCount ? 'lane-noise active' : 'lane-noise'} />
+        <span className={latestRound?.defenseCount ? 'lane-shield active' : 'lane-shield'} />
+      </div>
+
+      <div className="base-arena">
+        <div className="theater-label">
+          <span>砲台基地</span>
+          <strong>拠点耐久</strong>
+        </div>
+        <div className={baseClasses} aria-hidden="true">
+          <span />
+          <span />
+          <span />
+        </div>
+        <TheaterHp label="BASE HP" value={state.baseHp} max={state.baseMaxHp} tone="base" />
+        <div className="base-readout">
+          <span>防衛状況</span>
+          <strong>{partyBaseWarning(state.baseHp)?.title ?? '拠点安定'}</strong>
+          <em>{latestRound?.baseDamage ? `直近被害 -${latestRound.baseDamage}` : '砲台同期を維持中'}</em>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function TheaterHp({
+  label,
+  value,
+  max,
+  tone,
+}: {
+  label: string;
+  value: number;
+  max: number;
+  tone: 'boss' | 'base';
+}) {
+  return (
+    <div className="theater-hp">
+      <div>
+        <span>{label}</span>
+        <strong>{value}/{max}</strong>
+      </div>
+      <div className="theater-hp-track">
+        <span className={tone} style={{ width: percent(value, max) }} />
+      </div>
+    </div>
+  );
 }
 
 function BattleEventStrip({ engine }: { engine: GameEngine }) {
@@ -349,7 +450,7 @@ function PublicPlayerBoard({ players }: { players: HostPlayerView[] }) {
 
 function PublicPlayerCard({ player }: { player: HostPlayerView }) {
   return (
-    <article className="public-player-card">
+    <article className={`public-player-card sync-${player.inputTone}`}>
       <div className="player-topline">
         <h3>{player.name}</h3>
         <span>{player.control}</span>
@@ -365,7 +466,7 @@ function PublicPlayerCard({ player }: { player: HostPlayerView }) {
         </div>
         <div>
           <dt>入力</dt>
-          <dd>{player.inputStatus}</dd>
+          <dd><span className={`operation-chip ${player.inputTone}`}>{player.inputStatus}</span></dd>
         </div>
       </dl>
     </article>

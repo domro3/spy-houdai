@@ -39,11 +39,12 @@ export function SyncedPlayerScreen({
   };
 }) {
   const view = client.playerView;
+  const terminalTone = view?.role === 'スパイ' ? 'terminal-spy' : 'terminal-gunner';
   return (
-    <section className="player-screen action-panel synced-player-screen" aria-label="同期プレイヤー画面">
+    <section className={`player-screen action-panel synced-player-screen ${terminalTone}`} aria-label="作戦端末">
       <div className="panel-heading">
         <div>
-          <span className="section-kicker">同期プレイヤー画面</span>
+          <span className="section-kicker">作戦端末</span>
           <h2>{view?.phaseInstruction ?? 'ホスト画面を待っています'}</h2>
         </div>
         <button type="button" className="icon-button" onClick={client.requestSnapshot}>
@@ -58,13 +59,13 @@ export function SyncedPlayerScreen({
         <WaitingForHost playerId={playerId} client={client} />
       ) : (
         <>
-          <SyncedIdentityPanel view={view} />
           <PlayerStepBanner view={view} />
           {view.phase === 'finished' ? (
             <SyncedFinishedPanel view={view} />
           ) : (
             <SyncedControls view={view} client={client} />
           )}
+          <SyncedIdentityPanel view={view} />
         </>
       )}
     </section>
@@ -79,21 +80,35 @@ function SyncClientStatus({
   playerId: string;
 }) {
   const label = client.status === 'connected'
-    ? '接続中'
+    ? 'リンク中'
     : client.status === 'waiting'
-      ? 'ホスト待ち'
+      ? 'Board待ち'
       : client.status === 'unavailable'
         ? '未対応'
-        : '接続準備中';
+        : 'リンク準備中';
   return (
     <section className={`sync-status-panel ${client.status === 'connected' ? '' : 'waiting'}`}>
-      <strong>Local Sync</strong>
+      <strong>端末リンク</strong>
       <span>{label}</span>
-      <span>Player {playerId}</span>
-      <span>{client.sessionId ? `Session ${client.sessionId.slice(0, 8)}` : 'No session'}</span>
-      <span>{client.lastEvent}</span>
+      <span>{playerId.toUpperCase()}</span>
+      <span>{client.sessionId ? `同期 ${client.sessionId.slice(0, 8)}` : '同期待ち'}</span>
+      <span>{clientEventLabel(client.lastEvent)}</span>
     </section>
   );
+}
+
+function clientEventLabel(event: string): string {
+  if (event === 'connecting to local host') return 'Board探索中';
+  if (event === 'local player sync disabled') return '端末待機';
+  if (event === 'BroadcastChannel unavailable') return '同期未対応';
+  if (event === 'waiting for host tab') return 'Board待機中';
+  if (event === 'send failed') return '送信失敗';
+  if (event === 'host snapshot received') return '戦況受信';
+  if (event === 'player view updated') return '端末更新';
+  if (event === 'host returned an error') return '送信エラー';
+  if (event.startsWith('host r')) return 'Boardリンク確認';
+  if (event.startsWith('session reset:')) return 'セッション更新';
+  return event;
 }
 
 function WaitingForHost({
@@ -117,8 +132,9 @@ function WaitingForHost({
 }
 
 function SyncedIdentityPanel({ view }: { view: PlayerScreenViewModel }) {
+  const isSpy = view.role === 'スパイ';
   return (
-    <section className="player-identity-panel">
+    <section className={`player-identity-panel ${isSpy ? 'role-spy' : 'role-gunner'}`}>
       <div className="player-topline">
         <div>
           <span className="section-kicker">{view.id}</span>
@@ -126,13 +142,14 @@ function SyncedIdentityPanel({ view }: { view: PlayerScreenViewModel }) {
         </div>
         <span>{view.control}</span>
       </div>
-      <dl>
+      <div className="private-role-card">
+        <span>あなたの役職</span>
+        <strong>{isSpy ? 'あなたはスパイです' : 'あなたは砲台員です'}</strong>
+        <em>{isSpy ? '裏回線の行動はこの端末だけに表示されます。' : 'チーム砲台としてボスを止めます。'}</em>
+      </div>
+      <dl className="terminal-status-grid">
         <div>
-          <dt>あなたの役職</dt>
-          <dd>{view.role}</dd>
-        </div>
-        <div>
-          <dt>状態</dt>
+          <dt>端末状態</dt>
           <dd>{view.status}</dd>
         </div>
         <div>
@@ -159,9 +176,9 @@ function PlayerStepBanner({ view }: { view: PlayerScreenViewModel }) {
     <section className={`player-step-banner ${tone}`}>
       <div>
         <span>{playerStepKicker(view)}</span>
-        <strong>{submitted ? '送信済み' : playerStepTitle(view)}</strong>
+        <strong>{submitted ? playerSubmittedTitle(view) : playerStepTitle(view)}</strong>
       </div>
-      <em>{submitted ? 'Boardの自動進行を待っています。' : playerStepBody(view)}</em>
+      <em>{submitted ? '他プレイヤーの入力待ち。揃うと自動で戦況が進みます。' : playerStepBody(view)}</em>
     </section>
   );
 }
@@ -192,6 +209,14 @@ function playerStepTitle(view: PlayerScreenViewModel): string {
   return '操作してください';
 }
 
+function playerSubmittedTitle(view: PlayerScreenViewModel): string {
+  if (view.phase === 'action') return '作戦送信済み';
+  if (view.phase === 'vote') return view.mode === 'party' ? '予想送信済み' : '投票送信済み';
+  if (view.phase === 'plea') return '弁明送信済み';
+  if (view.phase === 'branch') return '作戦投票済み';
+  return '送信済み';
+}
+
 function playerStepBody(view: PlayerScreenViewModel): string {
   if (view.phase === 'action' && view.mode === 'party') return '迷ったら「撃つ」。危ない予告なら「守る」、拠点が減ったら「直す」。';
   if (view.phase === 'vote' && view.mode === 'party') return '勝敗後のおまけ投票です。怪しい砲台を選んでください。';
@@ -211,17 +236,28 @@ function SyncedControls({
     errors: string[];
   };
 }) {
+  const submitted = playerPhaseSubmitted(view);
   return (
     <div className="manual-stack">
       {view.phase === 'vote' && view.inferenceHints.length > 0 && <SyncedInferenceHints view={view} />}
+      {submitted && view.phase !== 'finished' && <SubmittedWaitPanel view={view} />}
       {view.phase === 'action' && <SyncedActionControls view={view} onSubmit={client.submitAction} />}
       {view.phase === 'plea' && <SyncedPleaControls view={view} onSubmit={client.submitPlea} />}
       {view.phase === 'vote' && <SyncedVoteControls view={view} onSubmit={client.submitVote} />}
       {view.phase === 'branch' && <SyncedBranchControls view={view} onSubmit={client.submitBranchVote} />}
       <PrivateLogList logs={view.privateLogs.slice(-4)} />
       <SyncErrors errors={client.errors} />
-      <p className="muted">この画面はローカル同期プロトタイプです。入力は /board のGameCoreへ送信されます。</p>
     </div>
+  );
+}
+
+function SubmittedWaitPanel({ view }: { view: PlayerScreenViewModel }) {
+  return (
+    <section className="submitted-wait-panel">
+      <span>{playerSubmittedTitle(view)}</span>
+      <strong>同期待機中</strong>
+      <em>端末を閉じずに戦況スクリーンの解決を待ってください。</em>
+    </section>
   );
 }
 
@@ -233,6 +269,7 @@ function SyncedActionControls({
   onSubmit: (submission: ActionSubmission) => void;
 }) {
   const [targetId, setTargetId] = useState(view.targetOptions[0]?.id);
+  const submitted = Boolean(view.selectedActionType);
   const basicActions = view.mode === 'party' && view.availableActions.some((action) => action.type === 'sabotage')
     ? view.availableActions.filter((action) => ['normal_attack', 'defend', 'repair'].includes(action.type))
     : [];
@@ -251,6 +288,7 @@ function SyncedActionControls({
       ].filter(Boolean).join(' ')}
       aria-pressed={view.selectedActionType === action.type}
       title={action.help}
+      disabled={submitted}
       onClick={() => onSubmit({
         playerId: view.id,
         type: action.type,
@@ -292,11 +330,12 @@ function SyncedActionControls({
 }
 
 function SyncedPleaControls({ view, onSubmit }: { view: PlayerScreenViewModel; onSubmit: (plea: string) => void }) {
+  const submitted = Boolean(view.selectedPlea);
   return (
     <div className="manual-card">
       <ControlTitle view={view} title="弁明カード" />
       <SelectionStatus label="選択済み" value={view.selectedPlea ?? '未選択'} />
-      <select value={view.selectedPlea ?? ''} onChange={(event) => onSubmit(event.target.value)}>
+      <select value={view.selectedPlea ?? ''} disabled={submitted} onChange={(event) => onSubmit(event.target.value)}>
         <option value="" disabled>弁明カードを選択</option>
         {view.pleaOptions.map((card) => <option key={card} value={card}>{card}</option>)}
       </select>
@@ -305,6 +344,7 @@ function SyncedPleaControls({ view, onSubmit }: { view: PlayerScreenViewModel; o
 }
 
 function SyncedVoteControls({ view, onSubmit }: { view: PlayerScreenViewModel; onSubmit: (vote: VoteSubmission) => void }) {
+  const submitted = Boolean(view.selectedVoteTargetId);
   return (
     <div className="manual-card">
       <ControlTitle view={view} title={view.mode === 'party' ? 'スパイ予想' : '疑惑投票'} />
@@ -315,6 +355,7 @@ function SyncedVoteControls({ view, onSubmit }: { view: PlayerScreenViewModel; o
             type="button"
             key={candidate.id}
             className={view.selectedVoteTargetId === candidate.id ? 'choice selected' : 'choice'}
+            disabled={submitted}
             onClick={() => onSubmit({ voterId: view.id, targetId: candidate.id })}
           >
             <Vote size={16} />
@@ -333,6 +374,7 @@ function SyncedBranchControls({
   view: PlayerScreenViewModel;
   onSubmit: (submission: BranchVoteSubmission) => void;
 }) {
+  const submitted = Boolean(view.selectedBranchPlan);
   return (
     <div className="manual-card">
       <ControlTitle view={view} title="作戦投票" />
@@ -347,6 +389,7 @@ function SyncedBranchControls({
             key={option.plan}
             className={view.selectedBranchPlan === option.plan ? 'choice selected' : 'choice'}
             title={option.help}
+            disabled={submitted}
             onClick={() => onSubmit({ voterId: view.id, plan: option.plan as BranchPlan })}
           >
             <Shield size={16} />
@@ -446,7 +489,7 @@ function SyncErrors({ errors }: { errors: string[] }) {
   if (errors.length === 0) return null;
   return (
     <div className="sync-error-list">
-      <span>Local Sync Error</span>
+      <span>通信エラー</span>
       <ol>
         {errors.map((error, index) => <li key={`${index}-${error}`}>{error}</li>)}
       </ol>

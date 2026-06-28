@@ -133,13 +133,13 @@ function App() {
         </div>
         {screenView === 'board' ? (
           <div className="setup-controls readonly-route-note">
-            <strong>Public board</strong>
-            <span>プレイヤー入力が揃うと自動で進行します。手動操作は /debug に分離しています。</span>
+            <strong>戦況スクリーン</strong>
+            <span>全員の作戦が揃うと自動で戦闘を解決します。</span>
           </div>
         ) : screenView === 'player' ? (
           <div className="setup-controls readonly-route-note">
-            <strong>Player client view</strong>
-            <span>自分の行動・投票だけを送信します。進行は /board が自動で行います。</span>
+            <strong>作戦端末</strong>
+            <span>自分の行動・投票だけを送信します。</span>
           </div>
         ) : (
           <div className="setup-controls">
@@ -285,10 +285,14 @@ function LocalRouteBar({
   ];
 
   return (
-    <nav className="local-route-bar" aria-label="ローカル画面切替">
+    <nav className={normalPlayView ? 'local-route-bar play-routes' : 'local-route-bar'} aria-label="ローカル画面切替">
       <div>
-        <strong>ローカル画面プロトタイプ</strong>
-        <span>Board/Player画面では他画面を別タブで開きます。LAN/オンライン通信はまだありません。</span>
+        <strong>{normalPlayView ? '画面リンク' : 'ローカル画面プロトタイプ'}</strong>
+        <span>
+          {normalPlayView
+            ? 'Boardと各プレイヤー端末を別タブで開きます。'
+            : 'Board/Player画面では他画面を別タブで開きます。LAN/オンライン通信はまだありません。'}
+        </span>
       </div>
       <div className="local-route-links">
         {routeLinks.map((link) => {

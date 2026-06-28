@@ -52,7 +52,7 @@ describe('screen privacy guardrails', () => {
     expect(serialized).not.toContain('解決');
   });
 
-  it('shows disconnected local player slots as auto-waiting on the public board', () => {
+  it('shows disconnected local player slots as auto-syncing on the public board', () => {
     const engine = new GameEngine({
       totalPlayers: 5,
       humanPlayers: 5,
@@ -66,8 +66,14 @@ describe('screen privacy guardrails', () => {
 
     const hostView = createHostScreenViewModel(engine);
     expect(phaseReadyCount(engine)).toEqual({ ready: 1, total: 3 });
-    expect(hostView.players.find((player) => player.id === 'p2')?.inputStatus).toBe('自動待機');
-    expect(hostView.players.find((player) => player.id === 'p1')?.inputStatus).toBe('入力済み');
+    expect(hostView.players.find((player) => player.id === 'p2')).toMatchObject({
+      inputStatus: '自動同期中',
+      inputTone: 'auto',
+    });
+    expect(hostView.players.find((player) => player.id === 'p1')).toMatchObject({
+      inputStatus: '作戦送信済み',
+      inputTone: 'ready',
+    });
   });
 
   it('lets PlayerScreen projection show only the selected player private surface', () => {

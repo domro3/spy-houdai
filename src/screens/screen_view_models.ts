@@ -11,6 +11,7 @@ export interface HostPlayerView {
   role: string;
   status: string;
   inputStatus: string;
+  inputTone: 'ready' | 'waiting' | 'auto' | 'done';
 }
 
 export interface HostVoteView {
@@ -68,14 +69,18 @@ export function createHostScreenViewModel(engine: GameEngine): HostScreenViewMod
   }));
 
   return {
-    players: state.players.map((player) => ({
-      id: player.id,
-      name: player.name,
-      control: controlLabel(player),
-      role: state.phase === 'finished' ? roleLabel(player) : '非公開',
-      status: player.isConnected ? '接続中' : '砲台ロボ',
-      inputStatus: publicInputStatus(engine, player.id),
-    })),
+    players: state.players.map((player) => {
+      const input = publicInputStatus(engine, player.id);
+      return {
+        id: player.id,
+        name: player.name,
+        control: controlLabel(player),
+        role: state.phase === 'finished' ? roleLabel(player) : '非公開',
+        status: player.isConnected ? '有人リンク' : 'ロボ待機',
+        inputStatus: input.label,
+        inputTone: input.inputTone,
+      };
+    }),
     publicLogs: state.publicLogs,
     latestVotes,
   };
@@ -149,18 +154,37 @@ export function createPlayerScreenViewModel(engine: GameEngine, playerId: string
   };
 }
 
-function publicInputStatus(engine: GameEngine, playerId: string): string {
+function publicInputStatus(engine: GameEngine, playerId: string): {
+  label: string;
+  inputTone: HostPlayerView['inputTone'];
+} {
   const state = engine.state;
   const player = engine.getPlayer(playerId);
   if (state.phase !== 'finished' && engine.controlledByCpu(player)) {
-    if (state.phase === 'action' && !state.submittedActions[playerId]) return '自動待機';
-    if (state.phase === 'plea' && !state.pleas[playerId]) return '自動待機';
-    if (state.phase === 'vote' && !state.votes[playerId]) return '自動待機';
-    if (state.phase === 'branch' && !state.branchVotes[playerId]) return '自動待機';
+    if (state.phase === 'action' && !state.submittedActions[playerId]) return { label: '自動同期中', inputTone: 'auto' };
+    if (state.phase === 'plea' && !state.pleas[playerId]) return { label: '自動同期中', inputTone: 'auto' };
+    if (state.phase === 'vote' && !state.votes[playerId]) return { label: '自動同期中', inputTone: 'auto' };
+    if (state.phase === 'branch' && !state.branchVotes[playerId]) return { label: '自動同期中', inputTone: 'auto' };
   }
-  if (state.phase === 'action') return state.submittedActions[playerId] ? '入力済み' : '未入力';
-  if (state.phase === 'plea') return state.pleas[playerId] ? '入力済み' : '未入力';
-  if (state.phase === 'vote') return state.votes[playerId] ? '入力済み' : '未入力';
-  if (state.phase === 'branch') return state.branchVotes[playerId] ? '入力済み' : '未入力';
-  return '完了';
+  if (state.phase === 'action') {
+    return state.submittedActions[playerId]
+      ? { label: '作戦送信済み', inputTone: 'ready' }
+      : { label: '同期待機中', inputTone: 'waiting' };
+  }
+  if (state.phase === 'plea') {
+    return state.pleas[playerId]
+      ? { label: '弁明送信済み', inputTone: 'ready' }
+      : { label: '通信待機中', inputTone: 'waiting' };
+  }
+  if (state.phase === 'vote') {
+    return state.votes[playerId]
+      ? { label: state.mode === 'party' ? '予想送信済み' : '投票送信済み', inputTone: 'ready' }
+      : { label: '投票待機中', inputTone: 'waiting' };
+  }
+  if (state.phase === 'branch') {
+    return state.branchVotes[playerId]
+      ? { label: '作戦投票済み', inputTone: 'ready' }
+      : { label: '集計待機中', inputTone: 'waiting' };
+  }
+  return { label: '戦闘終了', inputTone: 'done' };
 }
