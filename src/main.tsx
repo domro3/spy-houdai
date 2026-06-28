@@ -4,6 +4,7 @@ import { Bot, Play } from 'lucide-react';
 import { GameEngine } from './core/game_engine';
 import type { GameMode } from './core/types';
 import { fillCpuActions, fillCpuBranchVotes, fillCpuPleas, fillCpuVotes, runCpuGame } from './cpu/autoplay';
+import { useLocalHostSession, type LocalHostSessionStatus } from './local_sync/host_session';
 import { DebugPanel } from './screens/DebugPanel';
 import { HostScreen } from './screens/HostScreen';
 import { localPathForView, parseLocalRoute, type LocalScreenView } from './screens/local_routes';
@@ -45,6 +46,12 @@ function App() {
   }, []);
 
   const rerender = () => forceRender((value) => value + 1);
+  const hostSyncEnabled = screenView === 'host';
+  const hostSync = useLocalHostSession({
+    enabled: hostSyncEnabled,
+    engine,
+    onStateChanged: rerender,
+  });
 
   function navigateLocal(path: string) {
     const nextRoute = parseLocalRoute(path);
@@ -67,7 +74,12 @@ function App() {
   }
 
   function resetGame() {
-    setEngine(new GameEngine({ totalPlayers, humanPlayers, seed, mode }));
+    const nextEngine = new GameEngine({ totalPlayers, humanPlayers, seed, mode });
+    setEngine(nextEngine);
+    if (hostSyncEnabled) {
+      hostSync.replaceEngine(nextEngine, 'host reset');
+      hostSync.broadcastReset('host reset');
+    }
   }
 
   function startCpuOnly() {
@@ -75,6 +87,9 @@ function App() {
     const nextEngine = new GameEngine({ totalPlayers, humanPlayers: 0, seed, mode });
     nextEngine.state = result;
     setEngine(nextEngine);
+    if (hostSyncEnabled) {
+      hostSync.replaceEngine(nextEngine, 'host CPU run');
+    }
   }
 
   function autoFillCurrentPhase() {
@@ -82,6 +97,7 @@ function App() {
     if (state.phase === 'plea') fillCpuPleas(engine);
     if (state.phase === 'vote') fillCpuVotes(engine);
     if (state.phase === 'branch') fillCpuBranchVotes(engine);
+    if (hostSyncEnabled) hostSync.broadcastSnapshot();
     rerender();
   }
 
@@ -95,6 +111,7 @@ function App() {
     } else if (state.phase === 'branch' && state.players.every((player) => state.branchVotes[player.id])) {
       engine.resolveBranch();
     }
+    if (hostSyncEnabled) hostSync.broadcastSnapshot();
     rerender();
   }
 
@@ -171,6 +188,7 @@ function App() {
         activePlayerId={safeActivePlayerId}
         onNavigate={navigateLocal}
       />
+      {screenView === 'host' && <SyncStatusPanel status={hostSync.status} />}
 
       {(localRoute.invalidPath || localRoute.invalidPlayerId || (localRoute.view === 'player' && !routePlayerExists)) && (
         <RouteNotice
@@ -196,6 +214,26 @@ function App() {
 
       {(screenView === 'split' || screenView === 'debug') && <DebugPanel engine={engine} />}
     </main>
+  );
+}
+
+function SyncStatusPanel({ status }: { status?: LocalHostSessionStatus }) {
+  if (!status) {
+    return (
+      <section className="sync-status-panel waiting">
+        <strong>Local Sync</strong>
+        <span>ホスト同期を準備中です。</span>
+      </section>
+    );
+  }
+  return (
+    <section className={status.available ? 'sync-status-panel' : 'sync-status-panel warning'}>
+      <strong>Local Sync</strong>
+      <span>{status.available ? 'BroadcastChannel active' : 'BroadcastChannel unavailable'}</span>
+      <span>Session {status.sessionId.slice(0, 8)}</span>
+      <span>Players {status.connectedPlayers.length > 0 ? status.connectedPlayers.join(', ') : 'none'}</span>
+      <span>{status.lastEvent}</span>
+    </section>
   );
 }
 

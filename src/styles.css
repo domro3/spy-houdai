@@ -260,6 +260,49 @@ input {
   color: #ffffff;
 }
 
+.sync-status-panel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #eef7f4;
+  border: 1px solid rgb(42 157 143 / 18%);
+}
+
+.sync-status-panel strong,
+.sync-status-panel span {
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.sync-status-panel strong {
+  color: #246c4f;
+}
+
+.sync-status-panel span {
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: #fffefa;
+  padding: 2px 8px;
+  color: #4d5663;
+}
+
+.sync-status-panel.warning,
+.sync-status-panel.waiting {
+  background: #fff8e6;
+  border-color: rgb(122 61 0 / 18%);
+}
+
+.sync-status-panel.warning strong,
+.sync-status-panel.waiting strong {
+  color: #7a3d00;
+}
+
 .status-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

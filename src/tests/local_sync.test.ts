@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
+import { GameEngine } from '../core/game_engine';
+import { LocalHostSession } from '../local_sync/host_session';
 import { createLocalSyncMessage, isLocalSyncMessage } from '../local_sync/messages';
-import { createBroadcastChannelTransport } from '../local_sync/transport';
+import { createBroadcastChannelTransport, type LocalSyncHandler, type LocalSyncTransport } from '../local_sync/transport';
+import type { LocalSyncMessage } from '../local_sync/messages';
 
 describe('local sync messages', () => {
   it('creates serializable protocol messages', () => {
@@ -42,3 +45,79 @@ describe('local sync transport', () => {
     globalThis.BroadcastChannel = original;
   });
 });
+
+describe('local host session', () => {
+  it('broadcasts snapshots and accepts player commands through transport', () => {
+    const engine = new GameEngine({
+      totalPlayers: 4,
+      humanPlayers: 1,
+      seed: 91,
+      spyId: 'p4',
+      mode: 'party',
+    });
+    const transport = new MemoryTransport();
+    const session = new LocalHostSession({
+      engine,
+      transport,
+      sessionId: 'test-session',
+    });
+
+    session.start();
+    expect(transport.sent.map((message) => message.type)).toContain('host_hello');
+    expect(transport.sent.map((message) => message.type)).toContain('state_snapshot');
+    expect(transport.sent.filter((message) => message.type === 'player_view')).toHaveLength(4);
+
+    transport.sent = [];
+    transport.emit(createLocalSyncMessage('player_hello', 'player', { playerId: 'p1' }));
+    expect(session.status.connectedPlayers).toEqual(['p1']);
+    expect(transport.sent.map((message) => message.type)).toContain('state_snapshot');
+
+    transport.sent = [];
+    transport.emit(createLocalSyncMessage('submit_action', 'player', {
+      playerId: 'p1',
+      type: 'normal_attack',
+    }));
+    expect(engine.state.submittedActions.p1?.type).toBe('normal_attack');
+    expect(transport.sent.map((message) => message.type)).toContain('state_snapshot');
+
+    transport.sent = [];
+    transport.emit(createLocalSyncMessage('submit_action', 'player', {
+      playerId: 'p9',
+      type: 'normal_attack',
+    }));
+    expect(transport.sent.find((message) => message.type === 'error')?.payload.message).toContain('Unknown player');
+
+    session.dispose();
+    expect(transport.closed).toBe(true);
+  });
+});
+
+class MemoryTransport implements LocalSyncTransport {
+  readonly available = true;
+  sent: LocalSyncMessage[] = [];
+  private handlers = new Set<LocalSyncHandler>();
+  private isClosed = false;
+
+  get closed(): boolean {
+    return this.isClosed;
+  }
+
+  post(message: LocalSyncMessage): void {
+    this.sent.push(message);
+  }
+
+  subscribe(handler: LocalSyncHandler): () => void {
+    this.handlers.add(handler);
+    return () => this.handlers.delete(handler);
+  }
+
+  emit(message: LocalSyncMessage): void {
+    for (const handler of this.handlers) {
+      handler(message);
+    }
+  }
+
+  close(): void {
+    this.isClosed = true;
+  }
+}
