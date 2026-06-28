@@ -33,6 +33,11 @@ export function localPathForView(view: LocalScreenView, playerId = 'p1'): string
   return '/';
 }
 
+export function shouldOpenRouteButtonInNewTab(activeView: LocalScreenView, targetIsActive: boolean): boolean {
+  if (targetIsActive) return false;
+  return activeView === 'board' || activeView === 'player';
+}
+
 function normalizeLocalPath(pathname: string): string {
   const path = pathname.replace(/\/+$/, '') || '/';
   return path.startsWith('/') ? path : `/${path}`;

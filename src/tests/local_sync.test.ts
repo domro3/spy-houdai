@@ -126,6 +126,84 @@ describe('local host session', () => {
     vi.useRealTimers();
   });
 
+  it('auto-resolves after the connected local players submit and fills unopened human slots as CPU', async () => {
+    vi.useFakeTimers();
+    const engine = new GameEngine({
+      totalPlayers: 5,
+      humanPlayers: 5,
+      seed: 20260627,
+      spyId: 'p5',
+      mode: 'party',
+    });
+    const transport = new MemoryTransport();
+    const session = new LocalHostSession({
+      engine,
+      transport,
+      sessionId: 'connected-only-action',
+      autoAdvanceDelayMs: 1,
+    });
+
+    session.start();
+    transport.emit(createLocalSyncMessage('player_hello', 'player', { playerId: 'p1' }));
+    expect(engine.getPlayer('p2').isConnected).toBe(false);
+
+    transport.emit(createLocalSyncMessage('submit_action', 'player', {
+      playerId: 'p1',
+      type: 'normal_attack',
+    }));
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(engine.state.history).toHaveLength(1);
+    expect(engine.state.round).toBe(2);
+    expect(engine.state.bossHp).toBeLessThan(engine.state.bossMaxHp);
+    expect(engine.state.history[0]?.totalDamage).toBeGreaterThan(0);
+
+    session.dispose();
+    vi.useRealTimers();
+  });
+
+  it('waits for every connected local player before resolving the board round', async () => {
+    vi.useFakeTimers();
+    const engine = new GameEngine({
+      totalPlayers: 5,
+      humanPlayers: 5,
+      seed: 20260628,
+      spyId: 'p5',
+      mode: 'party',
+    });
+    const transport = new MemoryTransport();
+    const session = new LocalHostSession({
+      engine,
+      transport,
+      sessionId: 'connected-wait',
+      autoAdvanceDelayMs: 1,
+    });
+
+    session.start();
+    transport.emit(createLocalSyncMessage('player_hello', 'player', { playerId: 'p1' }));
+    transport.emit(createLocalSyncMessage('player_hello', 'player', { playerId: 'p2' }));
+
+    transport.emit(createLocalSyncMessage('submit_action', 'player', {
+      playerId: 'p1',
+      type: 'normal_attack',
+    }));
+    await vi.advanceTimersByTimeAsync(1);
+    expect(engine.state.history).toHaveLength(0);
+    expect(engine.state.bossHp).toBe(engine.state.bossMaxHp);
+
+    transport.emit(createLocalSyncMessage('submit_action', 'player', {
+      playerId: 'p2',
+      type: 'normal_attack',
+    }));
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(engine.state.history).toHaveLength(1);
+    expect(engine.state.bossHp).toBeLessThan(engine.state.bossMaxHp);
+
+    session.dispose();
+    vi.useRealTimers();
+  });
+
   it('auto-resolves the final spy vote without a facilitator button', async () => {
     vi.useFakeTimers();
     const engine = new GameEngine({

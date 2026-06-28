@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { GameEngine } from '../core/game_engine';
-import { parseLocalRoute } from '../screens/local_routes';
+import { parseLocalRoute, shouldOpenRouteButtonInNewTab } from '../screens/local_routes';
 import { createHostScreenViewModel, createPlayerScreenViewModel } from '../screens/screen_view_models';
 
 describe('local screen routes', () => {
@@ -12,6 +12,15 @@ describe('local screen routes', () => {
     expect(parseLocalRoute('/player/p2')).toMatchObject({ view: 'player', playerId: 'p2' });
     expect(parseLocalRoute('/player/p9')).toMatchObject({ view: 'player', invalidPlayerId: 'p9' });
     expect(parseLocalRoute('/unknown')).toMatchObject({ view: 'split', invalidPath: '/unknown' });
+  });
+
+  it('keeps board and player route buttons from replacing active synced tabs', () => {
+    expect(shouldOpenRouteButtonInNewTab('board', false)).toBe(true);
+    expect(shouldOpenRouteButtonInNewTab('player', false)).toBe(true);
+    expect(shouldOpenRouteButtonInNewTab('board', true)).toBe(false);
+    expect(shouldOpenRouteButtonInNewTab('player', true)).toBe(false);
+    expect(shouldOpenRouteButtonInNewTab('split', false)).toBe(false);
+    expect(shouldOpenRouteButtonInNewTab('debug', false)).toBe(false);
   });
 });
 

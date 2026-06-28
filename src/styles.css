@@ -262,6 +262,11 @@ input {
   color: #697481;
 }
 
+.route-link button:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
 .route-link.active {
   background: #345995;
   box-shadow: none;

@@ -8,7 +8,12 @@ import { useLocalHostSession } from './local_sync/host_session';
 import { useLocalPlayerClient } from './local_sync/player_client';
 import { DebugPanel } from './screens/DebugPanel';
 import { HostScreen } from './screens/HostScreen';
-import { localPathForView, parseLocalRoute, type LocalScreenView } from './screens/local_routes';
+import {
+  localPathForView,
+  parseLocalRoute,
+  shouldOpenRouteButtonInNewTab,
+  type LocalScreenView,
+} from './screens/local_routes';
 import { PlayerScreen } from './screens/PlayerScreen';
 import { canResolveCurrentPhase } from './screens/screen_state';
 import { SyncedPlayerScreen } from './screens/SyncedPlayerScreen';
@@ -279,19 +284,37 @@ function LocalRouteBar({
     <nav className="local-route-bar" aria-label="ローカル画面切替">
       <div>
         <strong>ローカル画面プロトタイプ</strong>
-        <span>同じ端末内の別タブをBroadcastChannelで同期します。LAN/オンライン通信はまだありません。</span>
+        <span>Board/Player画面では他画面を別タブで開きます。LAN/オンライン通信はまだありません。</span>
       </div>
       <div className="local-route-links">
-        {routeLinks.map((link) => (
-          <span key={link.path} className={link.active ? 'route-link active' : 'route-link'}>
-            <button type="button" onClick={() => onNavigate(link.path)}>
-              {link.label}
-            </button>
-            <a href={link.path} target="_blank" rel="noreferrer" title={`${link.label}を別タブで開く`}>
-              ↗
-            </a>
-          </span>
-        ))}
+        {routeLinks.map((link) => {
+          const opensInNewTab = shouldOpenRouteButtonInNewTab(activeView, link.active);
+          return (
+            <span key={link.path} className={link.active ? 'route-link active' : 'route-link'}>
+              <button
+                type="button"
+                disabled={link.active}
+                onClick={() => {
+                  if (opensInNewTab) {
+                    window.open(link.path, '_blank', 'noopener,noreferrer');
+                    return;
+                  }
+                  onNavigate(link.path);
+                }}
+                title={link.active
+                  ? `${link.label}を表示中`
+                  : opensInNewTab
+                    ? `${link.label}を別タブで開く`
+                    : `${link.label}へ切替`}
+              >
+                {link.label}
+              </button>
+              <a href={link.path} target="_blank" rel="noreferrer" title={`${link.label}を別タブで開く`}>
+                ↗
+              </a>
+            </span>
+          );
+        })}
       </div>
     </nav>
   );

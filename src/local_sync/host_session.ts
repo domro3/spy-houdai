@@ -133,34 +133,38 @@ export class LocalHostSession {
     try {
       switch (message.type) {
         case 'player_hello':
-          this.connectedPlayers.add(message.payload.playerId);
+          this.markLocalPlayerActive(message.payload.playerId);
           this.lastEvent = `${message.payload.playerId} connected`;
           this.broadcastHello();
           this.broadcastSnapshot();
           break;
         case 'request_snapshot':
-          if (message.payload.playerId) this.connectedPlayers.add(message.payload.playerId);
+          if (message.payload.playerId) this.markLocalPlayerActive(message.payload.playerId);
           this.lastEvent = 'snapshot requested';
           this.broadcastSnapshot();
           break;
         case 'submit_action':
           this.assertKnownPlayer(message.payload.playerId);
+          this.markLocalPlayerActive(message.payload.playerId);
           this.engine.submitAction(message.payload);
           this.acceptCommand(`action from ${message.payload.playerId}`);
           break;
         case 'submit_vote':
           this.assertKnownPlayer(message.payload.voterId);
           this.assertKnownPlayer(message.payload.targetId);
+          this.markLocalPlayerActive(message.payload.voterId);
           this.engine.submitVote(message.payload);
           this.acceptCommand(`vote from ${message.payload.voterId}`);
           break;
         case 'submit_plea':
           this.assertKnownPlayer(message.payload.playerId);
+          this.markLocalPlayerActive(message.payload.playerId);
           this.engine.submitPlea(message.payload.playerId, message.payload.plea);
           this.acceptCommand(`plea from ${message.payload.playerId}`);
           break;
         case 'submit_branch_vote':
           this.assertKnownPlayer(message.payload.voterId);
+          this.markLocalPlayerActive(message.payload.voterId);
           this.engine.submitBranchVote(message.payload);
           this.acceptCommand(`branch vote from ${message.payload.voterId}`);
           break;
@@ -256,6 +260,21 @@ export class LocalHostSession {
 
   private humanControlledPlayers(): Player[] {
     return this.engine.state.players.filter((player) => !this.engine.controlledByCpu(player));
+  }
+
+  private markLocalPlayerActive(playerId: string): void {
+    this.assertKnownPlayer(playerId);
+    this.connectedPlayers.add(playerId);
+    this.syncLocalPlayerConnections();
+  }
+
+  private syncLocalPlayerConnections(): void {
+    if (this.connectedPlayers.size === 0) return;
+    for (const player of this.engine.state.players) {
+      if (!player.isCpu) {
+        player.isConnected = this.connectedPlayers.has(player.id);
+      }
+    }
   }
 
   private clearAutoAdvanceTimer(): void {
