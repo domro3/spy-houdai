@@ -5,10 +5,12 @@ import { GameEngine } from './core/game_engine';
 import type { GameMode } from './core/types';
 import { fillCpuActions, fillCpuBranchVotes, fillCpuPleas, fillCpuVotes, runCpuGame } from './cpu/autoplay';
 import { useLocalHostSession, type LocalHostSessionStatus } from './local_sync/host_session';
+import { useLocalPlayerClient } from './local_sync/player_client';
 import { DebugPanel } from './screens/DebugPanel';
 import { HostScreen } from './screens/HostScreen';
 import { localPathForView, parseLocalRoute, type LocalScreenView } from './screens/local_routes';
 import { PlayerScreen } from './screens/PlayerScreen';
+import { SyncedPlayerScreen } from './screens/SyncedPlayerScreen';
 import './styles.css';
 
 const INITIAL_LOCAL_ROUTE = parseLocalRoute(window.location.pathname);
@@ -52,6 +54,7 @@ function App() {
     engine,
     onStateChanged: rerender,
   });
+  const playerSync = useLocalPlayerClient(safeActivePlayerId, screenView === 'player');
 
   function navigateLocal(path: string) {
     const nextRoute = parseLocalRoute(path);
@@ -122,64 +125,71 @@ function App() {
           <p className="eyebrow">全員砲台、1人だけスパイ。</p>
           <h1>スパイ砲台</h1>
         </div>
-        <div className="setup-controls">
-          <label>
-            モード
-            <select value={mode} onChange={(event) => setMode(event.target.value as GameMode)}>
-              <option value="party">Party</option>
-              <option value="advanced">Advanced</option>
-            </select>
-          </label>
-          <label>
-            人数
-            <select
-              value={totalPlayers}
-              onChange={(event) => {
-                const nextTotal = Number(event.target.value);
-                setTotalPlayers(nextTotal);
-                setHumanPlayers((current) => Math.min(current, nextTotal));
-                if (Number(activePlayerId.slice(1)) > nextTotal) {
-                  setActivePlayerId('p1');
-                }
-              }}
-            >
-              <option value={4}>4</option>
-              <option value={5}>5</option>
-              <option value={6}>6</option>
-            </select>
-          </label>
-          <label>
-            手動
-            <select value={humanPlayers} onChange={(event) => setHumanPlayers(Number(event.target.value))}>
-              {Array.from({ length: totalPlayers + 1 }, (_, index) => (
-                <option key={index} value={index}>
-                  {index}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Seed
-            <input value={seed} type="number" onChange={(event) => setSeed(Number(event.target.value))} />
-          </label>
-          <label>
-            画面
-            <select value={screenView} onChange={(event) => setLocalView(event.target.value as LocalScreenView)}>
-              <option value="split">Host + Player</option>
-              <option value="host">Host only</option>
-              <option value="player">Player only</option>
-              <option value="debug">Debug only</option>
-            </select>
-          </label>
-          <button type="button" className="icon-button primary" onClick={resetGame} title="新規ゲーム">
-            <Play size={18} />
-            開始
-          </button>
-          <button type="button" className="icon-button" onClick={startCpuOnly} title="CPUだけで最後まで実行">
-            <Bot size={18} />
-            CPU完走
-          </button>
-        </div>
+        {screenView === 'player' || screenView === 'debug' ? (
+          <div className="setup-controls readonly-route-note">
+            <strong>{screenView === 'player' ? 'Player client view' : 'Debug view'}</strong>
+            <span>ゲーム操作は /host または / のローカル開発シェルで行います。</span>
+          </div>
+        ) : (
+          <div className="setup-controls">
+            <label>
+              モード
+              <select value={mode} onChange={(event) => setMode(event.target.value as GameMode)}>
+                <option value="party">Party</option>
+                <option value="advanced">Advanced</option>
+              </select>
+            </label>
+            <label>
+              人数
+              <select
+                value={totalPlayers}
+                onChange={(event) => {
+                  const nextTotal = Number(event.target.value);
+                  setTotalPlayers(nextTotal);
+                  setHumanPlayers((current) => Math.min(current, nextTotal));
+                  if (Number(activePlayerId.slice(1)) > nextTotal) {
+                    setActivePlayerId('p1');
+                  }
+                }}
+              >
+                <option value={4}>4</option>
+                <option value={5}>5</option>
+                <option value={6}>6</option>
+              </select>
+            </label>
+            <label>
+              手動
+              <select value={humanPlayers} onChange={(event) => setHumanPlayers(Number(event.target.value))}>
+                {Array.from({ length: totalPlayers + 1 }, (_, index) => (
+                  <option key={index} value={index}>
+                    {index}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Seed
+              <input value={seed} type="number" onChange={(event) => setSeed(Number(event.target.value))} />
+            </label>
+            <label>
+              画面
+              <select value={screenView} onChange={(event) => setLocalView(event.target.value as LocalScreenView)}>
+                <option value="split">Host + Player</option>
+                <option value="host">Host only</option>
+                <option value="player">Player only</option>
+                <option value="debug">Debug only</option>
+              </select>
+            </label>
+            <button type="button" className="icon-button primary" onClick={resetGame} title="新規ゲーム">
+              <Play size={18} />
+              開始
+            </button>
+            <button type="button" className="icon-button" onClick={startCpuOnly} title="CPUだけで最後まで実行">
+              <Bot size={18} />
+              CPU完走
+            </button>
+          </div>
+        )}
       </section>
 
       <LocalRouteBar
@@ -200,7 +210,7 @@ function App() {
 
       <section className={`screen-shell ${screenView}`}>
         {(screenView === 'split' || screenView === 'host') && <HostScreen engine={engine} />}
-        {(screenView === 'split' || screenView === 'player') && (
+        {screenView === 'split' && (
           <PlayerScreen
             engine={engine}
             activePlayerId={safeActivePlayerId}
@@ -209,6 +219,9 @@ function App() {
             onResolvePhase={resolvePhase}
             onChange={rerender}
           />
+        )}
+        {screenView === 'player' && (
+          <SyncedPlayerScreen playerId={safeActivePlayerId} client={playerSync} />
         )}
       </section>
 

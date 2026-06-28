@@ -88,6 +88,22 @@ h3 {
   align-items: center;
 }
 
+.readonly-route-note {
+  max-width: 520px;
+  justify-content: flex-end;
+}
+
+.readonly-route-note strong {
+  color: #345995;
+}
+
+.readonly-route-note span {
+  color: #697481;
+  font-size: 0.86rem;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
 label {
   display: grid;
   gap: 5px;
@@ -969,6 +985,31 @@ dt {
 }
 
 .private-log-peek li {
+  line-height: 1.45;
+  font-size: 0.86rem;
+}
+
+.sync-error-list {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 7px;
+  background: #ffecec;
+  border: 1px solid rgb(183 45 54 / 24%);
+}
+
+.sync-error-list span {
+  color: #8f1821;
+  font-size: 0.74rem;
+  font-weight: 900;
+}
+
+.sync-error-list ol {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.sync-error-list li {
   line-height: 1.45;
   font-size: 0.86rem;
 }
