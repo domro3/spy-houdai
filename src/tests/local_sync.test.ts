@@ -90,6 +90,119 @@ describe('local host session', () => {
     session.dispose();
     expect(transport.closed).toBe(true);
   });
+
+  it('auto-fills CPU actions and resolves after required human actions are submitted', async () => {
+    vi.useFakeTimers();
+    const engine = new GameEngine({
+      totalPlayers: 4,
+      humanPlayers: 1,
+      seed: 42,
+      spyId: 'p4',
+      mode: 'party',
+    });
+    const transport = new MemoryTransport();
+    const session = new LocalHostSession({
+      engine,
+      transport,
+      sessionId: 'auto-action',
+      autoAdvanceDelayMs: 1,
+    });
+
+    session.start();
+    transport.emit(createLocalSyncMessage('submit_action', 'player', {
+      playerId: 'p1',
+      type: 'normal_attack',
+    }));
+
+    expect(engine.state.phase).toBe('action');
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(engine.state.history).toHaveLength(1);
+    expect(engine.state.phase).toBe('action');
+    expect(engine.state.round).toBe(2);
+    expect(engine.state.submittedActions).toEqual({});
+
+    session.dispose();
+    vi.useRealTimers();
+  });
+
+  it('auto-resolves the final spy vote without a facilitator button', async () => {
+    vi.useFakeTimers();
+    const engine = new GameEngine({
+      totalPlayers: 4,
+      humanPlayers: 1,
+      seed: 43,
+      spyId: 'p4',
+      mode: 'party',
+    });
+    engine.state.bossHp = 10;
+    const transport = new MemoryTransport();
+    const session = new LocalHostSession({
+      engine,
+      transport,
+      sessionId: 'auto-vote',
+      autoAdvanceDelayMs: 1,
+    });
+
+    session.start();
+    transport.emit(createLocalSyncMessage('submit_action', 'player', {
+      playerId: 'p1',
+      type: 'normal_attack',
+    }));
+    await vi.advanceTimersByTimeAsync(1);
+    expect(engine.state.phase).toBe('vote');
+
+    transport.emit(createLocalSyncMessage('submit_vote', 'player', {
+      voterId: 'p1',
+      targetId: 'p4',
+    }));
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(engine.state.phase).toBe('finished');
+    expect(engine.state.result?.bossDefeated).toBe(true);
+    expect(engine.state.votes.p1?.targetId).toBe('p4');
+
+    session.dispose();
+    vi.useRealTimers();
+  });
+
+  it('rejects stale player commands after auto progression changes phase', async () => {
+    vi.useFakeTimers();
+    const engine = new GameEngine({
+      totalPlayers: 4,
+      humanPlayers: 1,
+      seed: 44,
+      spyId: 'p4',
+      mode: 'party',
+    });
+    engine.state.bossHp = 10;
+    const transport = new MemoryTransport();
+    const session = new LocalHostSession({
+      engine,
+      transport,
+      sessionId: 'late-command',
+      autoAdvanceDelayMs: 1,
+    });
+
+    session.start();
+    transport.emit(createLocalSyncMessage('submit_action', 'player', {
+      playerId: 'p1',
+      type: 'normal_attack',
+    }));
+    await vi.advanceTimersByTimeAsync(1);
+    expect(engine.state.phase).toBe('vote');
+
+    transport.sent = [];
+    transport.emit(createLocalSyncMessage('submit_action', 'player', {
+      playerId: 'p1',
+      type: 'normal_attack',
+    }));
+
+    expect(transport.sent.find((message) => message.type === 'error')?.payload.message).toContain('Expected phase action');
+
+    session.dispose();
+    vi.useRealTimers();
+  });
 });
 
 class MemoryTransport implements LocalSyncTransport {

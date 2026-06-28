@@ -1,5 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { GameEngine } from '../core/game_engine';
+import type { GamePhase, Player } from '../core/types';
+import {
+  fillCpuActions,
+  fillCpuBranchVotes,
+  fillCpuPleas,
+  fillCpuVotes,
+} from '../cpu/autoplay';
 import { createHostScreenViewModel, createPlayerScreenViewModel } from '../screens/screen_view_models';
 import {
   createLocalSyncMessage,
@@ -22,6 +29,8 @@ export interface LocalHostSessionOptions {
   engine: GameEngine;
   transport?: LocalSyncTransport;
   sessionId?: string;
+  autoAdvanceEnabled?: boolean;
+  autoAdvanceDelayMs?: number;
   onStateChanged?: () => void;
   onStatusChanged?: (status: LocalHostSessionStatus) => void;
 }
@@ -30,11 +39,14 @@ export class LocalHostSession {
   private engine: GameEngine;
   private readonly transport: LocalSyncTransport;
   private readonly sessionId: string;
+  private readonly autoAdvanceEnabled: boolean;
+  private readonly autoAdvanceDelayMs: number;
   private readonly onStateChanged?: () => void;
   private readonly onStatusChanged?: (status: LocalHostSessionStatus) => void;
   private readonly connectedPlayers = new Set<string>();
   private unsubscribe?: () => void;
   private heartbeatId?: number;
+  private autoAdvanceTimer?: ReturnType<typeof setTimeout>;
   private messagesReceived = 0;
   private snapshotsSent = 0;
   private lastEvent = 'host session created';
@@ -43,6 +55,8 @@ export class LocalHostSession {
     this.engine = options.engine;
     this.transport = options.transport ?? createBroadcastChannelTransport();
     this.sessionId = options.sessionId ?? createSessionId();
+    this.autoAdvanceEnabled = options.autoAdvanceEnabled ?? true;
+    this.autoAdvanceDelayMs = options.autoAdvanceDelayMs ?? 800;
     this.onStateChanged = options.onStateChanged;
     this.onStatusChanged = options.onStatusChanged;
   }
@@ -66,13 +80,16 @@ export class LocalHostSession {
     if (typeof window !== 'undefined') {
       this.heartbeatId = window.setInterval(() => this.broadcastHello(), 2000);
     }
+    this.scheduleAutoAdvance();
     this.emitStatus();
   }
 
   setEngine(engine: GameEngine, reason = 'host state updated'): void {
+    this.clearAutoAdvanceTimer();
     this.engine = engine;
     this.lastEvent = reason;
     this.broadcastSnapshot();
+    this.scheduleAutoAdvance();
     this.emitStatus();
   }
 
@@ -106,6 +123,7 @@ export class LocalHostSession {
     if (this.heartbeatId !== undefined && typeof window !== 'undefined') {
       window.clearInterval(this.heartbeatId);
     }
+    this.clearAutoAdvanceTimer();
     this.transport.close();
   }
 
@@ -163,6 +181,87 @@ export class LocalHostSession {
     this.lastEvent = event;
     this.onStateChanged?.();
     this.broadcastSnapshot();
+    this.scheduleAutoAdvance();
+  }
+
+  private scheduleAutoAdvance(): void {
+    if (!this.autoAdvanceEnabled || this.autoAdvanceTimer || !this.humanInputsReadyForCurrentPhase()) {
+      return;
+    }
+
+    this.lastEvent = '全員の入力が揃いました';
+    this.emitStatus();
+    this.autoAdvanceTimer = setTimeout(() => {
+      this.autoAdvanceTimer = undefined;
+      this.runAutoAdvance();
+    }, this.autoAdvanceDelayMs);
+  }
+
+  private runAutoAdvance(): void {
+    const phase = this.engine.state.phase;
+    if (!isAutoAdvancePhase(phase) || !this.humanInputsReadyForPhase(phase)) {
+      return;
+    }
+
+    try {
+      this.fillCpuInputsForPhase(phase);
+      if (!this.allInputsReadyForPhase(phase)) {
+        return;
+      }
+      this.resolvePhase(phase);
+      this.lastEvent = `auto advanced ${phase}`;
+      this.onStateChanged?.();
+      this.broadcastSnapshot();
+      this.scheduleAutoAdvance();
+    } catch (error) {
+      this.sendError(error instanceof Error ? error.message : 'Local sync auto progression failed');
+    } finally {
+      this.emitStatus();
+    }
+  }
+
+  private fillCpuInputsForPhase(phase: AutoAdvancePhase): void {
+    if (phase === 'action') fillCpuActions(this.engine);
+    if (phase === 'plea') fillCpuPleas(this.engine);
+    if (phase === 'vote') fillCpuVotes(this.engine);
+    if (phase === 'branch') fillCpuBranchVotes(this.engine);
+  }
+
+  private resolvePhase(phase: AutoAdvancePhase): void {
+    if (phase === 'action') this.engine.resolveActions();
+    if (phase === 'plea') this.engine.resolvePleas();
+    if (phase === 'vote') this.engine.resolveVotes();
+    if (phase === 'branch') this.engine.resolveBranch();
+  }
+
+  private humanInputsReadyForCurrentPhase(): boolean {
+    const phase = this.engine.state.phase;
+    return isAutoAdvancePhase(phase) && this.humanInputsReadyForPhase(phase);
+  }
+
+  private humanInputsReadyForPhase(phase: AutoAdvancePhase): boolean {
+    return this.humanControlledPlayers().every((player) => this.playerInputReady(player.id, phase));
+  }
+
+  private allInputsReadyForPhase(phase: AutoAdvancePhase): boolean {
+    return this.engine.state.players.every((player) => this.playerInputReady(player.id, phase));
+  }
+
+  private playerInputReady(playerId: string, phase: AutoAdvancePhase): boolean {
+    if (phase === 'action') return Boolean(this.engine.state.submittedActions[playerId]);
+    if (phase === 'plea') return Boolean(this.engine.state.pleas[playerId]);
+    if (phase === 'vote') return Boolean(this.engine.state.votes[playerId]);
+    return Boolean(this.engine.state.branchVotes[playerId]);
+  }
+
+  private humanControlledPlayers(): Player[] {
+    return this.engine.state.players.filter((player) => !this.engine.controlledByCpu(player));
+  }
+
+  private clearAutoAdvanceTimer(): void {
+    if (!this.autoAdvanceTimer) return;
+    clearTimeout(this.autoAdvanceTimer);
+    this.autoAdvanceTimer = undefined;
   }
 
   private broadcastHello(): void {
@@ -258,4 +357,10 @@ function createSessionId(): string {
     return crypto.randomUUID();
   }
   return `local-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+type AutoAdvancePhase = Exclude<GamePhase, 'finished'>;
+
+function isAutoAdvancePhase(phase: GamePhase): phase is AutoAdvancePhase {
+  return phase === 'action' || phase === 'plea' || phase === 'vote' || phase === 'branch';
 }
