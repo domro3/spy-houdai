@@ -4,6 +4,4 @@ dist/
 coverage/
 .vite/
 npm-debug.log*
-
-.DS_Store
 *.zip

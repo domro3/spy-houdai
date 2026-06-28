@@ -180,8 +180,11 @@ export class GameEngine {
       armorRegenSuccessCount: 0,
       baseDamage: 0,
       repairs: 0,
+      repairCount: 0,
       defenseCount: 0,
       sabotageCount: 0,
+      remainingBossHp: this.state.bossHp,
+      remainingBaseHp: this.state.baseHp,
       scrambleLog: false,
       scans: [],
       votes: {},
@@ -234,6 +237,7 @@ export class GameEngine {
           const healed = this.healBase(amount);
           player.stats.healing += healed;
           summary.repairs += healed;
+          summary.repairCount += 1;
           contributions[player.id].repaired += healed;
           changeSuspicion(player, -1);
           break;
@@ -290,6 +294,7 @@ export class GameEngine {
     }
 
     this.addMonitoredEvidence(summary);
+    this.captureRoundRemaining(summary);
     this.writeRoundLogs(summary);
     this.writePersonalContributionLogs(summary, contributions);
     this.state.phase = 'plea';
@@ -545,8 +550,11 @@ export class GameEngine {
       armorRegenSuccessCount: 0,
       baseDamage: 0,
       repairs: 0,
+      repairCount: 0,
       defenseCount: 0,
       sabotageCount: 0,
+      remainingBossHp: this.state.bossHp,
+      remainingBaseHp: this.state.baseHp,
       scrambleLog: false,
       scans: [],
       votes: {},
@@ -567,6 +575,7 @@ export class GameEngine {
     const sabotagedTargets = this.collectSabotageTargets(summary);
     const contributions = this.createRoundContributions();
     const defenders: string[] = [];
+    const roundRepairAmount = this.partyRepairAmount();
     let pendingBossDamage = 0;
     let pendingBossHealing = 0;
 
@@ -601,10 +610,11 @@ export class GameEngine {
         case 'repair': {
           const amount = sabotaged
             ? PARTY_ACTION_BALANCE.sabotagedRepairAmount
-            : PARTY_ACTION_BALANCE.repairAmount;
+            : roundRepairAmount;
           const healed = this.healBase(amount);
           player.stats.healing += healed;
           summary.repairs += healed;
+          summary.repairCount += 1;
           contributions[player.id].repaired += healed;
           break;
         }
@@ -645,6 +655,7 @@ export class GameEngine {
     const bossEventLog = this.state.bossHp <= 0
       ? 'ボスを撃破！砲台の勝ちどきが響きました。'
       : this.resolvePartyBossAction(summary, defenders, sabotagedTargets, contributions);
+    this.captureRoundRemaining(summary);
     this.writePartyRoundLogs(summary, bossEventLog);
     this.writePersonalContributionLogs(summary, contributions);
 
@@ -668,7 +679,7 @@ export class GameEngine {
     switch (action.type) {
       case 'normal_attack': {
         const guarded = defenders.length > 0;
-        const noisyGuard = guarded && defenders.every((id) => sabotagedTargets.has(id));
+        const noisyGuard = guarded && defenders.some((id) => sabotagedTargets.has(id));
         const damage = this.damageBase(
           guarded
             ? noisyGuard
@@ -688,7 +699,7 @@ export class GameEngine {
       }
       case 'big_charge': {
         const guarded = defenders.length > 0;
-        const noisyGuard = guarded && defenders.every((id) => sabotagedTargets.has(id));
+        const noisyGuard = guarded && defenders.some((id) => sabotagedTargets.has(id));
         const damage = this.damageBase(
           guarded
             ? noisyGuard
@@ -766,6 +777,21 @@ export class GameEngine {
 
   private partyActionValue(baseValue: number, sabotaged: boolean): number {
     return Math.round(baseValue * (sabotaged ? PARTY_ACTION_BALANCE.sabotageMultiplier : 1));
+  }
+
+  private partyRepairAmount(): number {
+    if (this.state.baseHp <= PARTY_ACTION_BALANCE.repairCriticalThreshold) {
+      return PARTY_ACTION_BALANCE.repairCriticalAmount;
+    }
+    if (this.state.baseHp <= PARTY_ACTION_BALANCE.repairWarningThreshold) {
+      return PARTY_ACTION_BALANCE.repairWarningAmount;
+    }
+    return PARTY_ACTION_BALANCE.repairAmount;
+  }
+
+  private captureRoundRemaining(summary: RoundSummary): void {
+    summary.remainingBossHp = this.state.bossHp;
+    summary.remainingBaseHp = this.state.baseHp;
   }
 
   private damageBase(amount: number): number {

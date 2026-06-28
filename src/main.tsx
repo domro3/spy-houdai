@@ -14,7 +14,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { bossActionLabel, bossForecastLabel, GameEngine, requiresTarget } from './core/game_engine';
-import { PLEA_CARDS } from './data/constants';
+import { PARTY_ACTION_BALANCE, PLEA_CARDS } from './data/constants';
 import { fillCpuActions, fillCpuBranchVotes, fillCpuPleas, fillCpuVotes, runCpuGame } from './cpu/autoplay';
 import type { ActionType, BossActionType, BranchPlan, GameMode, Player } from './core/types';
 import {
@@ -232,6 +232,7 @@ function CentralStatusPanel({
   const latestRound = state.history.at(-1);
   const bossDelta = latestRound ? latestRound.bossHealing - latestRound.totalDamage : undefined;
   const baseDelta = latestRound ? latestRound.repairs - latestRound.baseDamage : undefined;
+  const baseWarning = state.mode === 'party' ? partyBaseWarning(state.baseHp) : undefined;
   return (
     <section className="central-panel" aria-label="中央状況">
       <div className="central-header">
@@ -246,6 +247,12 @@ function CentralStatusPanel({
         <BattleGauge label="ボスHP" value={state.bossHp} max={state.bossMaxHp} delta={bossDelta} tone="boss" />
         <BattleGauge label="拠点耐久" value={state.baseHp} max={state.baseMaxHp} delta={baseDelta} tone="base" />
       </div>
+      {baseWarning && (
+        <div className={`base-warning ${baseWarning.level}`}>
+          <strong>{baseWarning.title}</strong>
+          <span>{baseWarning.body}</span>
+        </div>
+      )}
 
       <div className="central-facts">
         <div>
@@ -644,6 +651,24 @@ function deltaTone(delta: number): 'positive' | 'negative' | 'neutral' {
   if (delta > 0) return 'positive';
   if (delta < 0) return 'negative';
   return 'neutral';
+}
+
+function partyBaseWarning(baseHp: number): { level: 'warning' | 'critical'; title: string; body: string } | undefined {
+  if (baseHp <= PARTY_ACTION_BALANCE.repairCriticalThreshold) {
+    return {
+      level: 'critical',
+      title: '拠点が陥落寸前です',
+      body: '次の攻撃で陥落するかもしれません。',
+    };
+  }
+  if (baseHp <= PARTY_ACTION_BALANCE.repairWarningThreshold) {
+    return {
+      level: 'warning',
+      title: '拠点が危険です',
+      body: '守るか直すを選ぶ理由が強くなっています。',
+    };
+  }
+  return undefined;
 }
 
 function ResultView({ engine }: { engine: GameEngine }) {

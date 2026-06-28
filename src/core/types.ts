@@ -143,8 +143,11 @@ export interface RoundSummary {
   armorRegenSuccessCount: number;
   baseDamage: number;
   repairs: number;
+  repairCount: number;
   defenseCount: number;
   sabotageCount: number;
+  remainingBossHp: number;
+  remainingBaseHp: number;
   scrambleLog: boolean;
   scans: ScanReport[];
   votes: Record<string, number>;

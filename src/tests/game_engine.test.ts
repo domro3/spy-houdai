@@ -218,7 +218,7 @@ describe('Party Mode', () => {
     expect(summary.totalDamage).toBe(144);
     expect(engine.spy().stats.damage).toBe(72);
     expect(engine.state.privateLogs.p4.join('\n')).toContain('ボスに72ダメージ');
-    expect(engine.state.baseHp).toBe(82);
+    expect(engine.state.baseHp).toBe(81);
   });
 
   it('defines prototype_gigant as data-driven boss content', () => {
@@ -226,10 +226,10 @@ describe('Party Mode', () => {
     expect(boss.id).toBe('prototype_gigant');
     expect(boss.name).toBe('プロトタイプ・ギガント');
     expect(boss.actionWeights).toMatchObject({
-      normal_attack: 40,
-      big_charge: 25,
-      armor_regen: 20,
-      target_lock: 15,
+      normal_attack: 32,
+      big_charge: 33,
+      armor_regen: 12,
+      target_lock: 23,
     });
   });
 
@@ -307,6 +307,12 @@ describe('Party Mode', () => {
     expect(summary.spyBossHelpCount).toBeGreaterThanOrEqual(0);
     expect(summary.armorRegenAttemptCount).toBeGreaterThanOrEqual(0);
     expect(summary.armorRegenSuccessCount).toBeGreaterThanOrEqual(0);
+    expect(summary.baseDestroyedRate).toBeGreaterThanOrEqual(0);
+    expect(summary.baseDanger40Rate).toBeGreaterThanOrEqual(0);
+    expect(summary.baseDanger25Rate).toBeGreaterThanOrEqual(0);
+    expect(summary.averageDefenseCount).toBeGreaterThanOrEqual(0);
+    expect(summary.averageRepairCount).toBeGreaterThanOrEqual(0);
+    expect(summary.records.every((record) => typeof record.baseDestroyed === 'boolean')).toBe(true);
   });
 
   it('shows sabotage feedback privately while keeping public Party logs short', () => {
@@ -364,7 +370,7 @@ describe('Party Mode', () => {
     engine.submitAction({ playerId: 'p4', type: 'fake_attack' });
     engine.resolveActions();
 
-    expect(engine.state.privateLogs.p1.join('\n')).toContain('15ダメージ守った');
+    expect(engine.state.privateLogs.p1.join('\n')).toContain('62ダメージ守った');
     expect(engine.state.privateLogs.p2.join('\n')).toContain('ボスに72ダメージ');
     expect(engine.state.privateLogs.p3.join('\n')).toContain('拠点を18修理');
     expect(engine.state.privateLogs.p4.join('\n')).toContain('ボスに34ダメージ');
@@ -386,10 +392,31 @@ describe('Party Mode', () => {
     engine.submitAction({ playerId: 'p4', type: 'fake_attack' });
     const summary = engine.resolveActions();
 
-    expect(summary.baseDamage).toBe(6);
-    expect(engine.state.baseHp).toBe(94);
+    expect(summary.baseDamage).toBe(7);
+    expect(engine.state.baseHp).toBe(93);
     expect(summary.publicLogs.join('\n')).toContain('通常攻撃をガード');
-    expect(engine.state.privateLogs.p1.join('\n')).toContain('4ダメージ守った');
+    expect(engine.state.privateLogs.p1.join('\n')).toContain('7ダメージ守った');
+  });
+
+  it('weakens a big-charge barrier when any defender is sabotaged', () => {
+    const engine = new GameEngine({
+      totalPlayers: 4,
+      humanPlayers: 0,
+      seed: 68,
+      spyId: 'p4',
+      mode: 'party',
+    });
+    engine.state.currentBossAction = { type: 'big_charge' };
+
+    engine.submitAction({ playerId: 'p1', type: 'defend' });
+    engine.submitAction({ playerId: 'p2', type: 'defend' });
+    engine.submitAction({ playerId: 'p3', type: 'defend' });
+    engine.submitAction({ playerId: 'p4', type: 'sabotage', targetId: 'p1' });
+    const summary = engine.resolveActions();
+
+    expect(summary.baseDamage).toBe(35);
+    expect(summary.publicLogs.join('\n')).toContain('バリアにノイズ');
+    expect(engine.state.privateLogs.p1.join('\n')).toContain('あなたが邪魔されました');
   });
 });
 
@@ -543,8 +570,11 @@ function emptySummary(round: number): RoundSummary {
     armorRegenSuccessCount: 0,
     baseDamage: 0,
     repairs: 0,
+    repairCount: 0,
     defenseCount: 0,
     sabotageCount: 0,
+    remainingBossHp: 0,
+    remainingBaseHp: 100,
     scrambleLog: false,
     scans: [],
     votes: {},
