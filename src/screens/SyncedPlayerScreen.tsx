@@ -59,6 +59,7 @@ export function SyncedPlayerScreen({
       ) : (
         <>
           <SyncedIdentityPanel view={view} />
+          <PlayerStepBanner view={view} />
           {view.phase === 'finished' ? (
             <SyncedFinishedPanel view={view} />
           ) : (
@@ -139,7 +140,7 @@ function SyncedIdentityPanel({ view }: { view: PlayerScreenViewModel }) {
           <dd>{view.selectedActionLabel}</dd>
         </div>
         <div>
-          <dt>直近結果</dt>
+          <dt>前ラウンド</dt>
           <dd>{view.recentActionLabel}</dd>
         </div>
         <div>
@@ -149,6 +150,52 @@ function SyncedIdentityPanel({ view }: { view: PlayerScreenViewModel }) {
       </dl>
     </section>
   );
+}
+
+function PlayerStepBanner({ view }: { view: PlayerScreenViewModel }) {
+  const submitted = playerPhaseSubmitted(view);
+  const tone = view.phase === 'finished' ? 'finished' : submitted ? 'submitted' : 'active';
+  return (
+    <section className={`player-step-banner ${tone}`}>
+      <div>
+        <span>{playerStepKicker(view)}</span>
+        <strong>{submitted ? '送信済み' : playerStepTitle(view)}</strong>
+      </div>
+      <em>{submitted ? 'Boardの自動進行を待っています。' : playerStepBody(view)}</em>
+    </section>
+  );
+}
+
+function playerPhaseSubmitted(view: PlayerScreenViewModel): boolean {
+  if (view.phase === 'action') return Boolean(view.selectedActionType);
+  if (view.phase === 'plea') return Boolean(view.selectedPlea);
+  if (view.phase === 'vote') return Boolean(view.selectedVoteTargetId);
+  if (view.phase === 'branch') return Boolean(view.selectedBranchPlan);
+  return view.phase === 'finished';
+}
+
+function playerStepKicker(view: PlayerScreenViewModel): string {
+  if (view.phase === 'finished') return '結果確認';
+  if (view.phase === 'action') return 'あなたの行動';
+  if (view.phase === 'vote') return view.mode === 'party' ? 'スパイ予想' : '疑惑投票';
+  if (view.phase === 'plea') return '弁明カード';
+  if (view.phase === 'branch') return '作戦投票';
+  return '次の操作';
+}
+
+function playerStepTitle(view: PlayerScreenViewModel): string {
+  if (view.phase === 'finished') return '結果を確認してください';
+  if (view.phase === 'action') return '行動を1つ選んでください';
+  if (view.phase === 'vote') return '投票先を1人選んでください';
+  if (view.phase === 'plea') return '弁明カードを選んでください';
+  if (view.phase === 'branch') return '作戦を選んでください';
+  return '操作してください';
+}
+
+function playerStepBody(view: PlayerScreenViewModel): string {
+  if (view.phase === 'action' && view.mode === 'party') return '迷ったら「撃つ」。危ない予告なら「守る」、拠点が減ったら「直す」。';
+  if (view.phase === 'vote' && view.mode === 'party') return '勝敗後のおまけ投票です。怪しい砲台を選んでください。';
+  return '選ぶとすぐBoardへ送信されます。';
 }
 
 function SyncedControls({
@@ -197,7 +244,12 @@ function SyncedActionControls({
     <button
       type="button"
       key={action.type}
-      className={`${view.selectedActionType === action.type ? 'choice selected' : 'choice'}${quiet ? ' quiet' : ''}`}
+      className={[
+        view.selectedActionType === action.type ? 'choice selected' : 'choice',
+        `action-${action.type}`,
+        quiet ? 'quiet' : '',
+      ].filter(Boolean).join(' ')}
+      aria-pressed={view.selectedActionType === action.type}
       title={action.help}
       onClick={() => onSubmit({
         playerId: view.id,
@@ -206,7 +258,10 @@ function SyncedActionControls({
       })}
     >
       {ACTION_ICONS[action.type]}
-      <span>{action.label}</span>
+      <span>
+        <strong>{action.label}</strong>
+        <small>{action.help}</small>
+      </span>
     </button>
   );
 

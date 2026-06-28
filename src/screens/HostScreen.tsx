@@ -53,6 +53,8 @@ function CentralStatusPanel({ engine }: { engine: GameEngine }) {
         <div className="phase-pill">{phaseLabel(state.phase, state.mode)}</div>
       </div>
 
+      <BoardFlowBanner engine={engine} readyCount={readyCount} />
+
       <div className="status-grid">
         <BattleGauge label="ボスHP" value={state.bossHp} max={state.bossMaxHp} delta={bossDelta} tone="boss" />
         <BattleGauge label="拠点耐久" value={state.baseHp} max={state.baseMaxHp} delta={baseDelta} tone="base" />
@@ -95,6 +97,68 @@ function CentralStatusPanel({ engine }: { engine: GameEngine }) {
       {state.mode === 'party' ? <PartyStatusBoard engine={engine} /> : <SuspicionBoard engine={engine} />}
     </section>
   );
+}
+
+function BoardFlowBanner({
+  engine,
+  readyCount,
+}: {
+  engine: GameEngine;
+  readyCount: { ready: number; total: number };
+}) {
+  const state = engine.state;
+  const remaining = Math.max(0, readyCount.total - readyCount.ready);
+  const allReady = state.phase !== 'finished' && readyCount.total > 0 && remaining === 0;
+  const tone = state.phase === 'finished'
+    ? 'finished'
+    : allReady
+      ? 'ready'
+      : state.currentBossAction.type === 'big_charge'
+        ? 'warning'
+        : 'active';
+
+  return (
+    <div className={`board-flow-banner ${tone}`}>
+      <div>
+        <span>{boardFlowKicker(state.phase)}</span>
+        <strong>{boardFlowTitle(engine, readyCount)}</strong>
+      </div>
+      <em>{boardFlowBody(engine, readyCount)}</em>
+    </div>
+  );
+}
+
+function boardFlowKicker(phase: GameEngine['state']['phase']): string {
+  if (phase === 'finished') return 'ゲーム終了';
+  if (phase === 'action') return '次にすること';
+  if (phase === 'vote') return '入力待ち';
+  if (phase === 'plea') return '入力待ち';
+  if (phase === 'branch') return '作戦選択';
+  return '進行中';
+}
+
+function boardFlowTitle(engine: GameEngine, readyCount: { ready: number; total: number }): string {
+  const state = engine.state;
+  const remaining = Math.max(0, readyCount.total - readyCount.ready);
+  if (state.phase === 'finished') return '結果を確認してください';
+  if (readyCount.total > 0 && remaining === 0) return '全員入力完了 - 解決中';
+  if (state.phase === 'action') return `${remaining}人の行動待ち`;
+  if (state.mode === 'party' && state.phase === 'vote') return `${remaining}人のスパイ予想待ち`;
+  if (state.phase === 'vote') return `${remaining}人の投票待ち`;
+  if (state.phase === 'plea') return `${remaining}人の弁明待ち`;
+  if (state.phase === 'branch') return `${remaining}人の作戦投票待ち`;
+  return '進行待ち';
+}
+
+function boardFlowBody(engine: GameEngine, readyCount: { ready: number; total: number }): string {
+  const state = engine.state;
+  const remaining = Math.max(0, readyCount.total - readyCount.ready);
+  if (state.phase === 'finished') return 'スパイ正体と称号を公開しています。';
+  if (readyCount.total > 0 && remaining === 0) return 'Boardが自動でCPU補完と解決を行います。';
+  if (state.phase === 'action' && state.mode === 'party') return partyBossHint(state.currentBossAction.type);
+  if (state.phase === 'action') return '各プレイヤーは自分の画面で行動を選びます。';
+  if (state.mode === 'party' && state.phase === 'vote') return '勝敗後のおまけ投票です。怪しい砲台を1人選びます。';
+  return `${phaseInputLabel(state.phase, state.mode)}を各プレイヤー画面で送信します。`;
 }
 
 function BattleEventStrip({ engine }: { engine: GameEngine }) {

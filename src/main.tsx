@@ -269,14 +269,18 @@ function LocalRouteBar({
   activePlayerId: string;
   onNavigate: (path: string) => void;
 }) {
-  const routeLinks = [
-    { path: '/', label: 'Dev Shell', active: activeView === 'split' },
+  const normalPlayView = activeView === 'board' || activeView === 'player';
+  const playLinks = [
     { path: '/board', label: 'Board', active: activeView === 'board' },
     ...players.map((player, index) => ({
       path: `/player/${player.id}`,
       label: `P${index + 1}`,
       active: activeView === 'player' && activePlayerId === player.id,
     })),
+  ];
+  const routeLinks = normalPlayView ? playLinks : [
+    { path: '/', label: 'Dev Shell', active: activeView === 'split' },
+    ...playLinks,
     { path: '/debug', label: 'Debug', active: activeView === 'debug' },
   ];
 

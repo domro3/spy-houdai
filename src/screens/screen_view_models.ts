@@ -151,6 +151,13 @@ export function createPlayerScreenViewModel(engine: GameEngine, playerId: string
 
 function publicInputStatus(engine: GameEngine, playerId: string): string {
   const state = engine.state;
+  const player = engine.getPlayer(playerId);
+  if (state.phase !== 'finished' && engine.controlledByCpu(player)) {
+    if (state.phase === 'action' && !state.submittedActions[playerId]) return '自動待機';
+    if (state.phase === 'plea' && !state.pleas[playerId]) return '自動待機';
+    if (state.phase === 'vote' && !state.votes[playerId]) return '自動待機';
+    if (state.phase === 'branch' && !state.branchVotes[playerId]) return '自動待機';
+  }
   if (state.phase === 'action') return state.submittedActions[playerId] ? '入力済み' : '未入力';
   if (state.phase === 'plea') return state.pleas[playerId] ? '入力済み' : '未入力';
   if (state.phase === 'vote') return state.votes[playerId] ? '入力済み' : '未入力';

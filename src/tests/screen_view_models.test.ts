@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { GameEngine } from '../core/game_engine';
 import { parseLocalRoute, shouldOpenRouteButtonInNewTab } from '../screens/local_routes';
 import { createHostScreenViewModel, createPlayerScreenViewModel } from '../screens/screen_view_models';
+import { phaseReadyCount } from '../screens/screen_state';
 
 describe('local screen routes', () => {
   it('parses host, player, debug, and fallback routes without networking state', () => {
@@ -49,6 +50,24 @@ describe('screen privacy guardrails', () => {
     expect(serialized).not.toContain('CPU入力');
     expect(serialized).not.toContain('CPU完走');
     expect(serialized).not.toContain('解決');
+  });
+
+  it('shows disconnected local player slots as auto-waiting on the public board', () => {
+    const engine = new GameEngine({
+      totalPlayers: 5,
+      humanPlayers: 5,
+      seed: 82,
+      spyId: 'p5',
+      mode: 'party',
+    });
+    engine.getPlayer('p2').isConnected = false;
+    engine.getPlayer('p3').isConnected = false;
+    engine.submitAction({ playerId: 'p1', type: 'normal_attack' });
+
+    const hostView = createHostScreenViewModel(engine);
+    expect(phaseReadyCount(engine)).toEqual({ ready: 1, total: 3 });
+    expect(hostView.players.find((player) => player.id === 'p2')?.inputStatus).toBe('自動待機');
+    expect(hostView.players.find((player) => player.id === 'p1')?.inputStatus).toBe('入力済み');
   });
 
   it('lets PlayerScreen projection show only the selected player private surface', () => {

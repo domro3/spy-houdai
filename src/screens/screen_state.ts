@@ -31,11 +31,21 @@ export function phaseInputLabel(phase: GamePhase, mode: GameMode): string {
 
 export function phaseReadyCount(engine: GameEngine): { ready: number; total: number } {
   const state = engine.state;
-  const total = state.players.length;
-  if (state.phase === 'action') return { ready: Object.keys(state.submittedActions).length, total };
-  if (state.phase === 'plea') return { ready: Object.keys(state.pleas).length, total };
-  if (state.phase === 'vote') return { ready: Object.keys(state.votes).length, total };
-  if (state.phase === 'branch') return { ready: Object.keys(state.branchVotes).length, total };
+  const requiredPlayers = state.players.filter((player) => !engine.controlledByCpu(player));
+  const countedPlayers = requiredPlayers.length > 0 ? requiredPlayers : state.players;
+  const total = countedPlayers.length;
+  if (state.phase === 'action') {
+    return { ready: countedPlayers.filter((player) => state.submittedActions[player.id]).length, total };
+  }
+  if (state.phase === 'plea') {
+    return { ready: countedPlayers.filter((player) => state.pleas[player.id]).length, total };
+  }
+  if (state.phase === 'vote') {
+    return { ready: countedPlayers.filter((player) => state.votes[player.id]).length, total };
+  }
+  if (state.phase === 'branch') {
+    return { ready: countedPlayers.filter((player) => state.branchVotes[player.id]).length, total };
+  }
   return { ready: total, total };
 }
 
