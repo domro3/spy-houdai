@@ -198,7 +198,7 @@ describe('Party Mode', () => {
     expect(() => engine.submitAction({ playerId: 'p1', type: 'scan', targetId: 'p4' })).toThrow();
   });
 
-  it('treats Party spy basic actions as real team actions', () => {
+  it('treats Party spy basic actions as normal-looking team actions', () => {
     const engine = new GameEngine({
       totalPlayers: 4,
       humanPlayers: 0,
@@ -215,9 +215,9 @@ describe('Party Mode', () => {
     engine.submitAction({ playerId: 'p4', type: 'normal_attack' });
     const summary = engine.resolveActions();
 
-    expect(summary.totalDamage).toBe(144);
-    expect(engine.spy().stats.damage).toBe(72);
-    expect(engine.state.privateLogs.p4.join('\n')).toContain('ボスに72ダメージ');
+    expect(summary.totalDamage).toBe(140);
+    expect(engine.spy().stats.damage).toBe(68);
+    expect(engine.state.privateLogs.p4.join('\n')).toContain('ボスに68ダメージ');
     expect(engine.state.baseHp).toBe(81);
   });
 
@@ -333,7 +333,8 @@ describe('Party Mode', () => {
     const summary = engine.resolveActions();
 
     expect(summary.publicLogs).toHaveLength(4);
-    expect(summary.publicLogs[0]).toContain('どこかにノイズ');
+    expect(summary.publicLogs[0]).toContain('強い通信ノイズ');
+    expect(summary.sabotagePressure).toBe(true);
     expect(engine.state.privateLogs.p1.join('\n')).toContain('あなたが邪魔されました');
     expect(engine.state.privateLogs.p1.join('\n')).toContain('バリア');
     expect(engine.state.privateLogs.p4.join('\n')).toContain('妨害成功');
@@ -414,7 +415,7 @@ describe('Party Mode', () => {
     engine.submitAction({ playerId: 'p4', type: 'sabotage', targetId: 'p1' });
     const summary = engine.resolveActions();
 
-    expect(summary.baseDamage).toBe(35);
+    expect(summary.baseDamage).toBe(41);
     expect(summary.publicLogs.join('\n')).toContain('バリアにノイズ');
     expect(engine.state.privateLogs.p1.join('\n')).toContain('あなたが邪魔されました');
   });
@@ -573,6 +574,7 @@ function emptySummary(round: number): RoundSummary {
     repairCount: 0,
     defenseCount: 0,
     sabotageCount: 0,
+    sabotagePressure: false,
     actions: {},
     sabotagedPlayerIds: [],
     remainingBossHp: 0,

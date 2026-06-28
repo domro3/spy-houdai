@@ -183,6 +183,7 @@ export class GameEngine {
       repairCount: 0,
       defenseCount: 0,
       sabotageCount: 0,
+      sabotagePressure: false,
       actions: {},
       sabotagedPlayerIds: [],
       remainingBossHp: this.state.bossHp,
@@ -600,6 +601,7 @@ export class GameEngine {
       repairCount: 0,
       defenseCount: 0,
       sabotageCount: 0,
+      sabotagePressure: false,
       actions: {},
       sabotagedPlayerIds: [],
       remainingBossHp: this.state.bossHp,
@@ -638,7 +640,10 @@ export class GameEngine {
 
       switch (action.type) {
         case 'normal_attack': {
-          const damage = this.partyActionValue(PARTY_ACTION_BALANCE.attackDamage, sabotaged);
+          const baseDamage = player.role === 'spy'
+            ? PARTY_ACTION_BALANCE.spyDisguisedAttackDamage
+            : PARTY_ACTION_BALANCE.attackDamage;
+          const damage = this.partyActionValue(baseDamage, sabotaged, action.type);
           pendingBossDamage += damage;
           player.stats.damage += damage;
           summary.totalDamage += damage;
@@ -646,7 +651,7 @@ export class GameEngine {
           break;
         }
         case 'fake_attack': {
-          const damage = this.partyActionValue(PARTY_ACTION_BALANCE.weakAttackDamage, sabotaged);
+          const damage = this.partyActionValue(PARTY_ACTION_BALANCE.weakAttackDamage, sabotaged, action.type);
           pendingBossDamage += damage;
           player.stats.damage += damage;
           summary.totalDamage += damage;
@@ -660,8 +665,8 @@ export class GameEngine {
           break;
         case 'repair': {
           const amount = sabotaged
-            ? PARTY_ACTION_BALANCE.sabotagedRepairAmount
-            : roundRepairAmount;
+            ? this.partySabotagedRepairAmount(action.type)
+            : this.partyRepairAmountFor(player, roundRepairAmount);
           const healed = this.healBase(amount);
           player.stats.healing += healed;
           summary.repairs += healed;
@@ -734,7 +739,7 @@ export class GameEngine {
         const damage = this.damageBase(
           guarded
             ? noisyGuard
-              ? PARTY_BOSS_ACTION_BALANCE.normalAttackNoisyGuardDamage
+              ? this.partyNoisyGuardDamage(PARTY_BOSS_ACTION_BALANCE.normalAttackNoisyGuardDamage, 'defend')
               : PARTY_BOSS_ACTION_BALANCE.normalAttackGuardedDamage
             : PARTY_BOSS_ACTION_BALANCE.normalAttackDamage,
         );
@@ -754,7 +759,7 @@ export class GameEngine {
         const damage = this.damageBase(
           guarded
             ? noisyGuard
-              ? PARTY_BOSS_ACTION_BALANCE.bigChargeNoisyGuardDamage
+              ? this.partyNoisyGuardDamage(PARTY_BOSS_ACTION_BALANCE.bigChargeNoisyGuardDamage, 'defend')
               : PARTY_BOSS_ACTION_BALANCE.bigChargeGuardedDamage
             : PARTY_BOSS_ACTION_BALANCE.bigChargeDamage,
         );
@@ -787,7 +792,7 @@ export class GameEngine {
         const damage = this.damageBase(
           targetGuarded
             ? noisyGuard
-              ? PARTY_BOSS_ACTION_BALANCE.targetLockNoisyGuardDamage
+              ? this.partyNoisyGuardDamage(PARTY_BOSS_ACTION_BALANCE.targetLockNoisyGuardDamage, 'defend')
               : PARTY_BOSS_ACTION_BALANCE.targetLockGuardedDamage
             : PARTY_BOSS_ACTION_BALANCE.targetLockDamage,
         );
@@ -826,8 +831,8 @@ export class GameEngine {
     this.finishGame(topTargetId);
   }
 
-  private partyActionValue(baseValue: number, sabotaged: boolean): number {
-    return Math.round(baseValue * (sabotaged ? PARTY_ACTION_BALANCE.sabotageMultiplier : 1));
+  private partyActionValue(baseValue: number, sabotaged: boolean, targetAction?: ActionType): number {
+    return Math.round(baseValue * (sabotaged ? this.partySabotageMultiplier(targetAction) : 1));
   }
 
   private partyRepairAmount(): number {
@@ -838,6 +843,49 @@ export class GameEngine {
       return PARTY_ACTION_BALANCE.repairWarningAmount;
     }
     return PARTY_ACTION_BALANCE.repairAmount;
+  }
+
+  private partyRepairAmountFor(player: Player, amount: number): number {
+    if (player.role !== 'spy') return amount;
+    return Math.max(0, amount - PARTY_ACTION_BALANCE.spyDisguisedRepairPenalty);
+  }
+
+  private partySabotagedRepairAmount(targetAction?: ActionType): number {
+    return this.partySabotagePressure(targetAction)
+      ? PARTY_ACTION_BALANCE.sabotagedRepairClutchAmount
+      : PARTY_ACTION_BALANCE.sabotagedRepairAmount;
+  }
+
+  private partySabotageMultiplier(targetAction?: ActionType): number {
+    return this.partySabotagePressure(targetAction)
+      ? PARTY_ACTION_BALANCE.sabotageClutchMultiplier
+      : PARTY_ACTION_BALANCE.sabotageMultiplier;
+  }
+
+  private partyNoisyGuardDamage(baseDamage: number, targetAction?: ActionType): number {
+    if (!this.partySabotagePressure(targetAction)) return baseDamage;
+    return baseDamage + PARTY_ACTION_BALANCE.sabotageClutchGuardDamageBonus;
+  }
+
+  private partySabotagePressure(targetAction?: ActionType): boolean {
+    const bossRate = this.state.bossHp / this.state.bossMaxHp;
+    const baseRate = this.state.baseHp / this.state.baseMaxHp;
+    const bossAction = this.state.currentBossAction.type;
+    const recent = [...this.state.history].reverse().find((round) => round.publicLogs.length > 0);
+    const reliedOnGuardOrRepair = recent
+      ? (recent.defenseCount + recent.repairCount) / this.state.players.length >= 0.45
+      : false;
+    const currentGuardOrRepairRate = Object.values(this.state.submittedActions)
+      .filter((action) => action.type === 'defend' || action.type === 'repair').length / this.state.players.length;
+    const currentGuardOrRepairReliance = currentGuardOrRepairRate >= 0.45;
+    const dangerousBossAction = bossAction === 'big_charge'
+      || bossAction === 'target_lock'
+      || (bossAction === 'armor_regen' && (targetAction === 'normal_attack' || targetAction === 'fake_attack'));
+    return bossRate <= 0.32
+      || baseRate <= 0.4
+      || dangerousBossAction
+      || reliedOnGuardOrRepair
+      || currentGuardOrRepairReliance;
   }
 
   private captureRoundRemaining(summary: RoundSummary): void {
@@ -898,7 +946,11 @@ export class GameEngine {
       : `拠点耐久は残り${this.state.baseHp}。`;
     const logs = [
       `第${summary.round}ラウンド: ${bossActionLabel(this.state.currentBossAction.type)}。${
-        summary.sabotageCount > 0 ? 'どこかにノイズ。' : ''
+        summary.sabotageCount > 0
+          ? summary.sabotagePressure
+            ? '強い通信ノイズ。'
+            : 'どこかにノイズ。'
+          : ''
       }`,
       attackLog,
       bossEventLog,
@@ -926,6 +978,9 @@ export class GameEngine {
       const spy = this.getPlayer(action.playerId);
       const target = this.getPlayer(action.targetId);
       const targetAction = this.state.submittedActions[target.id]?.type;
+      if (this.state.mode === 'party' && this.partySabotagePressure(targetAction)) {
+        summary.sabotagePressure = true;
+      }
       if (this.state.mode === 'party') {
         this.writePartySabotageFeedback(spy, target, targetAction);
       } else {
@@ -945,8 +1000,13 @@ export class GameEngine {
     this.recordPartySabotageStats(spy, targetAction);
     const combo = this.partySabotageCombo(targetAction);
     const targetActionLabel = targetAction ? actionLabel(targetAction, 'party') : '行動';
-    const targetLog = combo?.targetLog ?? partySabotageTargetLog(targetAction);
-    const spyLog = combo?.spyLog ?? `妨害成功: ${target.name}の${targetActionLabel}を乱しました。`;
+    const pressure = this.partySabotagePressure(targetAction);
+    const targetLog = pressure
+      ? `強い通信ノイズ。${combo?.targetLog ?? partySabotageTargetLog(targetAction)}`
+      : combo?.targetLog ?? partySabotageTargetLog(targetAction);
+    const spyLog = pressure
+      ? combo?.spyLog ?? `妨害成功: 要所で${target.name}の${targetActionLabel}を乱しました。`
+      : combo?.spyLog ?? `妨害成功: ${target.name}の${targetActionLabel}を乱しました。`;
 
     this.state.privateLogs[target.id].push(`あなたが邪魔されました。${targetLog}`);
     this.state.privateLogs[spy.id].push(spyLog);

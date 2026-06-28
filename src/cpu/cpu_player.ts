@@ -322,7 +322,11 @@ function choosePartyGunnerAction(state: GameState, player: Player, rng: RandomSo
 function choosePartySpyAction(state: GameState, player: Player, rng: RandomSource): ActionType {
   const bossRate = state.bossHp / state.bossMaxHp;
   const baseRate = state.baseHp / state.baseMaxHp;
-  const previousSpyAction = state.history.at(-1)?.actions[player.id];
+  const recent = state.history.at(-1);
+  const previousSpyAction = recent?.actions[player.id];
+  const recentGuardOrRepairReliance = recent
+    ? (recent.defenseCount + recent.repairCount) / state.players.length >= 0.45
+    : false;
   const highSuspicion = player.suspicion >= 4;
   const options: Array<{ value: ActionType; weight: number }> = [
     { value: 'normal_attack', weight: state.round <= 2 ? 24 : 16 },
@@ -365,6 +369,15 @@ function choosePartySpyAction(state: GameState, player: Player, rng: RandomSourc
     adjust(options, 'normal_attack', highSuspicion ? 14 : 6);
     adjust(options, 'fake_attack', 16);
     adjust(options, 'boss_heal', -10);
+  }
+  if (state.round >= 4 && bossRate <= 0.45) {
+    adjust(options, 'sabotage', 12);
+    adjust(options, 'boss_heal', 10);
+    adjust(options, 'normal_attack', -6);
+  }
+  if (recentGuardOrRepairReliance) {
+    adjust(options, 'sabotage', highSuspicion ? 4 : 14);
+    adjust(options, 'boss_heal', 4);
   }
   if (highSuspicion) {
     adjust(options, 'normal_attack', 26);

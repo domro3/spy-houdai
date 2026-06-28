@@ -295,6 +295,7 @@ function BattleEventStrip({ engine }: { engine: GameEngine }) {
   const guardActive = Boolean(latestRound && latestRound.defenseCount > 0);
   const repairActive = Boolean(latestRound && latestRound.repairs > 0);
   const sabotageActive = Boolean(latestRound && latestRound.sabotageCount > 0);
+  const sabotagePressure = Boolean(latestRound?.sabotagePressure);
   const bossHitActive = Boolean(latestRound && latestRound.totalDamage > 0);
   const baseHitActive = Boolean(latestRound && latestRound.baseDamage > 0);
   const healActive = Boolean(latestRound && latestRound.bossHealing > 0);
@@ -316,7 +317,13 @@ function BattleEventStrip({ engine }: { engine: GameEngine }) {
           <span>ボス</span>
         </div>
         <div className={attackActive ? 'battle-projectile active' : 'battle-projectile'} />
-        <div className={sabotageActive ? 'sabotage-noise active' : 'sabotage-noise'} />
+        <div
+          className={[
+            'sabotage-noise',
+            sabotageActive ? 'active' : '',
+            sabotagePressure ? 'pressure' : '',
+          ].filter(Boolean).join(' ')}
+        />
         <div className={guardActive ? 'shield-ring active' : 'shield-ring'} />
         <div
           className={[
@@ -365,7 +372,12 @@ function battleEvents(
     events.push({ key: 'repair', label: '修理完了', value: `+${latestRound.repairs}`, tone: 'repair' });
   }
   if (latestRound.sabotageCount > 0) {
-    events.push({ key: 'sabotage', label: '通信ノイズ', value: `${latestRound.sabotageCount}件`, tone: 'sabotage' });
+    events.push({
+      key: 'sabotage',
+      label: latestRound.sabotagePressure ? '強い通信ノイズ' : '通信ノイズ',
+      value: latestRound.sabotagePressure ? '警戒' : `${latestRound.sabotageCount}件`,
+      tone: latestRound.sabotagePressure ? 'sabotage pressure' : 'sabotage',
+    });
   }
   if (latestRound.baseDamage > 0) {
     events.push({ key: 'base', label: '拠点被弾', value: `-${latestRound.baseDamage}`, tone: 'danger' });

@@ -50,15 +50,20 @@ export const PARTY_RULES = {
 
 export const PARTY_ACTION_BALANCE = {
   attackDamage: 72,
+  spyDisguisedAttackDamage: 68,
   weakAttackDamage: 34,
   repairAmount: 18,
+  spyDisguisedRepairPenalty: 2,
   repairWarningThreshold: 40,
   repairWarningAmount: 24,
   repairCriticalThreshold: 25,
   repairCriticalAmount: 30,
   sabotagedRepairAmount: 10,
+  sabotagedRepairClutchAmount: 7,
   spyBossHealAmount: 36,
   sabotageMultiplier: 0.75,
+  sabotageClutchMultiplier: 0.65,
+  sabotageClutchGuardDamageBonus: 6,
 };
 
 export const PARTY_BOSS_ACTION_BALANCE = {
