@@ -165,6 +165,13 @@ function App() {
         </div>
       </section>
 
+      <LocalRouteBar
+        players={state.players.map((player) => ({ id: player.id, name: player.name }))}
+        activeView={screenView}
+        activePlayerId={safeActivePlayerId}
+        onNavigate={navigateLocal}
+      />
+
       {(localRoute.invalidPath || localRoute.invalidPlayerId || (localRoute.view === 'player' && !routePlayerExists)) && (
         <RouteNotice
           invalidPath={localRoute.invalidPath}
@@ -189,6 +196,50 @@ function App() {
 
       {(screenView === 'split' || screenView === 'debug') && <DebugPanel engine={engine} />}
     </main>
+  );
+}
+
+function LocalRouteBar({
+  players,
+  activeView,
+  activePlayerId,
+  onNavigate,
+}: {
+  players: Array<{ id: string; name: string }>;
+  activeView: LocalScreenView;
+  activePlayerId: string;
+  onNavigate: (path: string) => void;
+}) {
+  const routeLinks = [
+    { path: '/', label: 'Dev Shell', active: activeView === 'split' },
+    { path: '/host', label: 'Host', active: activeView === 'host' },
+    ...players.map((player, index) => ({
+      path: `/player/${player.id}`,
+      label: `P${index + 1}`,
+      active: activeView === 'player' && activePlayerId === player.id,
+    })),
+    { path: '/debug', label: 'Debug', active: activeView === 'debug' },
+  ];
+
+  return (
+    <nav className="local-route-bar" aria-label="ローカル画面切替">
+      <div>
+        <strong>ローカル画面プロトタイプ</strong>
+        <span>同じ端末内の表示確認です。別タブ間のゲーム状態同期はまだありません。</span>
+      </div>
+      <div className="local-route-links">
+        {routeLinks.map((link) => (
+          <span key={link.path} className={link.active ? 'route-link active' : 'route-link'}>
+            <button type="button" onClick={() => onNavigate(link.path)}>
+              {link.label}
+            </button>
+            <a href={link.path} target="_blank" rel="noreferrer" title={`${link.label}を別タブで開く`}>
+              ↗
+            </a>
+          </span>
+        ))}
+      </div>
+    </nav>
   );
 }
 

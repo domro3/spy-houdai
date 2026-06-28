@@ -188,6 +188,78 @@ input {
   text-align: right;
 }
 
+.local-route-bar {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.8fr) minmax(320px, 1.2fr);
+  gap: 14px;
+  align-items: center;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: rgb(255 255 255 / 70%);
+  border: 1px solid rgb(35 39 47 / 11%);
+}
+
+.local-route-bar > div:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.local-route-bar strong {
+  color: #20242b;
+}
+
+.local-route-bar span {
+  color: #697481;
+  font-size: 0.82rem;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.local-route-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+.route-link {
+  display: inline-flex;
+  overflow: hidden;
+  border-radius: 7px;
+  background: #fffefa;
+  box-shadow: inset 0 0 0 1px rgb(35 39 47 / 14%);
+}
+
+.route-link button,
+.route-link a {
+  display: inline-grid;
+  place-items: center;
+  min-height: 32px;
+  padding: 0 10px;
+  background: transparent;
+  color: #20242b;
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.route-link a {
+  min-width: 30px;
+  border-left: 1px solid rgb(35 39 47 / 10%);
+  color: #697481;
+}
+
+.route-link.active {
+  background: #345995;
+  box-shadow: none;
+}
+
+.route-link.active button,
+.route-link.active a {
+  color: #ffffff;
+}
+
 .status-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1177,7 +1249,8 @@ dd {
   .status-grid,
   .battlefield,
   .log-layout,
-  .screen-shell {
+  .screen-shell,
+  .local-route-bar {
     grid-template-columns: 1fr;
   }
 
@@ -1237,6 +1310,10 @@ dd {
   .view-switcher span,
   .route-notice span {
     text-align: left;
+  }
+
+  .local-route-links {
+    justify-content: flex-start;
   }
 }
 
