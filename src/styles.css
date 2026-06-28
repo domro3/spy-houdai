@@ -172,10 +172,6 @@ input {
   grid-template-columns: 1fr;
 }
 
-.screen-shell.debug {
-  display: none;
-}
-
 .host-screen {
   display: grid;
   gap: 16px;
