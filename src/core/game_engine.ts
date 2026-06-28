@@ -183,6 +183,8 @@ export class GameEngine {
       repairCount: 0,
       defenseCount: 0,
       sabotageCount: 0,
+      actions: {},
+      sabotagedPlayerIds: [],
       remainingBossHp: this.state.bossHp,
       remainingBaseHp: this.state.baseHp,
       scrambleLog: false,
@@ -199,12 +201,14 @@ export class GameEngine {
     );
 
     const sabotagedTargets = this.collectSabotageTargets(summary);
+    summary.sabotagedPlayerIds = [...sabotagedTargets];
     const contributions = this.createRoundContributions();
     let defenseReduction = 0;
 
     for (const action of Object.values(this.state.submittedActions)) {
       const player = this.getPlayer(action.playerId);
       player.lastAction = action.type;
+      summary.actions[player.id] = action.type;
       contributions[player.id].action = action.type;
       const sabotaged = sabotagedTargets.has(player.id);
       const damageMultiplier = BRANCH_EFFECTS[this.state.branchState.plan].damageMultiplier;
@@ -522,12 +526,9 @@ export class GameEngine {
     return boss;
   }
 
-  private selectBossActionPlan(boss: BossDefinition, players: Player[]): BossActionPlan {
+  private selectBossActionPlan(boss: BossDefinition, players: Player[], state?: GameState): BossActionPlan {
     const type = weightedChoice(
-      Object.entries(boss.actionWeights).map(([value, weight]) => ({
-        value: value as BossActionType,
-        weight: weight ?? 0,
-      })),
+      this.bossActionOptions(boss, state),
       this.rng,
     );
     if (type !== 'target_lock') {
@@ -537,6 +538,52 @@ export class GameEngine {
       type,
       targetPlayerId: players[Math.floor(this.rng.next() * players.length)]?.id,
     };
+  }
+
+  private bossActionOptions(
+    boss: BossDefinition,
+    state?: GameState,
+  ): Array<{ value: BossActionType; weight: number }> {
+    const options = Object.entries(boss.actionWeights).map(([value, weight]) => ({
+      value: value as BossActionType,
+      weight: weight ?? 0,
+    }));
+    if (!state || state.mode !== 'party') return options;
+
+    const bossRate = state.bossHp / state.bossMaxHp;
+    const baseRate = state.baseHp / state.baseMaxHp;
+    const recent = state.history.at(-1);
+    const recentAttackPressure = recent ? recent.totalDamage / state.players.length : 0;
+    const recentDefenseRate = recent ? recent.defenseCount / state.players.length : 0;
+    const recentRepairRate = recent ? recent.repairCount / state.players.length : 0;
+
+    if (bossRate <= 0.3) {
+      adjustBossAction(options, 'armor_regen', 14);
+      adjustBossAction(options, 'big_charge', 8);
+    }
+    if (baseRate <= 0.35) {
+      adjustBossAction(options, 'big_charge', -10);
+      adjustBossAction(options, 'target_lock', 6);
+      adjustBossAction(options, 'normal_attack', 8);
+    } else if (baseRate >= 0.75) {
+      adjustBossAction(options, 'big_charge', 8);
+      adjustBossAction(options, 'target_lock', 6);
+    }
+    if (recentAttackPressure >= 60) {
+      adjustBossAction(options, 'big_charge', 8);
+      adjustBossAction(options, 'target_lock', 6);
+      adjustBossAction(options, 'armor_regen', -4);
+    }
+    if (recentDefenseRate >= 0.45) {
+      adjustBossAction(options, 'armor_regen', 10);
+      adjustBossAction(options, 'normal_attack', 6);
+      adjustBossAction(options, 'big_charge', -8);
+    }
+    if (recentRepairRate >= 0.3) {
+      adjustBossAction(options, 'target_lock', 8);
+      adjustBossAction(options, 'normal_attack', 4);
+    }
+    return options;
   }
 
   private resolvePartyActions(): RoundSummary {
@@ -553,6 +600,8 @@ export class GameEngine {
       repairCount: 0,
       defenseCount: 0,
       sabotageCount: 0,
+      actions: {},
+      sabotagedPlayerIds: [],
       remainingBossHp: this.state.bossHp,
       remainingBaseHp: this.state.baseHp,
       scrambleLog: false,
@@ -573,6 +622,7 @@ export class GameEngine {
     );
 
     const sabotagedTargets = this.collectSabotageTargets(summary);
+    summary.sabotagedPlayerIds = [...sabotagedTargets];
     const contributions = this.createRoundContributions();
     const defenders: string[] = [];
     const roundRepairAmount = this.partyRepairAmount();
@@ -582,6 +632,7 @@ export class GameEngine {
     for (const action of Object.values(this.state.submittedActions)) {
       const player = this.getPlayer(action.playerId);
       player.lastAction = action.type;
+      summary.actions[player.id] = action.type;
       contributions[player.id].action = action.type;
       const sabotaged = sabotagedTargets.has(player.id);
 
@@ -1204,7 +1255,7 @@ export class GameEngine {
     this.state.phase = 'action';
     this.state.publicLogs.push(`ROUND ${this.state.round} 開始。`);
     if (this.state.mode === 'party') {
-      this.state.currentBossAction = this.selectBossActionPlan(this.state.boss, this.state.players);
+      this.state.currentBossAction = this.selectBossActionPlan(this.state.boss, this.state.players, this.state);
       this.state.publicLogs.push(this.partyBossForecastLog(this.state.currentBossAction));
     }
   }
@@ -1520,6 +1571,17 @@ function pleaContradictsAction(plea: string, action?: ActionType): boolean {
   if (plea.includes('防御')) return action !== 'defend';
   if (plea.includes('スキャン')) return action !== 'scan';
   return false;
+}
+
+function adjustBossAction(
+  options: Array<{ value: BossActionType; weight: number }>,
+  value: BossActionType,
+  delta: number,
+): void {
+  const option = options.find((item) => item.value === value);
+  if (option) {
+    option.weight = Math.max(1, option.weight + delta);
+  }
 }
 
 function assertNever(value: never): never {

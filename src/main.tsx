@@ -247,6 +247,7 @@ function CentralStatusPanel({
         <BattleGauge label="ボスHP" value={state.bossHp} max={state.bossMaxHp} delta={bossDelta} tone="boss" />
         <BattleGauge label="拠点耐久" value={state.baseHp} max={state.baseMaxHp} delta={baseDelta} tone="base" />
       </div>
+      {state.mode === 'party' && <BattleEventStrip engine={engine} />}
       {baseWarning && (
         <div className={`base-warning ${baseWarning.level}`}>
           <strong>{baseWarning.title}</strong>
@@ -284,6 +285,95 @@ function CentralStatusPanel({
       {state.mode === 'party' ? <PartyStatusBoard engine={engine} /> : <SuspicionBoard engine={engine} />}
     </section>
   );
+}
+
+function BattleEventStrip({ engine }: { engine: GameEngine }) {
+  const state = engine.state;
+  const latestRound = state.history.at(-1);
+  const bossAction = state.currentBossAction;
+  const attackActive = Boolean(latestRound && latestRound.totalDamage > 0);
+  const guardActive = Boolean(latestRound && latestRound.defenseCount > 0);
+  const repairActive = Boolean(latestRound && latestRound.repairs > 0);
+  const sabotageActive = Boolean(latestRound && latestRound.sabotageCount > 0);
+  const bossHitActive = Boolean(latestRound && latestRound.totalDamage > 0);
+  const baseHitActive = Boolean(latestRound && latestRound.baseDamage > 0);
+  const healActive = Boolean(latestRound && latestRound.bossHealing > 0);
+  const warningActive = state.phase === 'action' && bossAction.type === 'big_charge';
+  const events = battleEvents(state.currentBossAction.type, latestRound);
+
+  return (
+    <div className="battle-event-strip" aria-label="戦闘イベント">
+      <div className="battle-stage">
+        <div
+          className={[
+            'battle-node',
+            'boss-node',
+            bossHitActive ? 'boss-hit' : '',
+            healActive ? 'boss-heal' : '',
+            warningActive ? 'boss-warning' : '',
+          ].filter(Boolean).join(' ')}
+        >
+          <span>ボス</span>
+        </div>
+        <div className={attackActive ? 'battle-projectile active' : 'battle-projectile'} />
+        <div className={sabotageActive ? 'sabotage-noise active' : 'sabotage-noise'} />
+        <div className={guardActive ? 'shield-ring active' : 'shield-ring'} />
+        <div
+          className={[
+            'battle-node',
+            'base-node',
+            baseHitActive ? 'base-hit' : '',
+            repairActive ? 'base-repair' : '',
+          ].filter(Boolean).join(' ')}
+        >
+          <span>拠点</span>
+        </div>
+      </div>
+      <div className="event-chip-row">
+        {events.map((event) => (
+          <span key={event.key} className={`event-chip ${event.tone}`}>
+            <strong>{event.label}</strong>
+            <em>{event.value}</em>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function battleEvents(
+  bossAction: BossActionType,
+  latestRound?: NonNullable<GameEngine['state']['history'][number]>,
+): Array<{ key: string; label: string; value: string; tone: string }> {
+  if (!latestRound) {
+    return [{
+      key: 'forecast',
+      label: 'ボス予告',
+      value: bossForecastLabel(bossAction),
+      tone: bossAction === 'big_charge' ? 'warning' : 'neutral',
+    }];
+  }
+
+  const events: Array<{ key: string; label: string; value: string; tone: string }> = [];
+  if (latestRound.totalDamage > 0) {
+    events.push({ key: 'attack', label: '砲撃命中', value: `${latestRound.totalDamage}ダメージ`, tone: 'attack' });
+  }
+  if (latestRound.defenseCount > 0) {
+    events.push({ key: 'guard', label: 'バリア展開', value: `${latestRound.defenseCount}基`, tone: 'guard' });
+  }
+  if (latestRound.repairs > 0) {
+    events.push({ key: 'repair', label: '修理完了', value: `+${latestRound.repairs}`, tone: 'repair' });
+  }
+  if (latestRound.sabotageCount > 0) {
+    events.push({ key: 'sabotage', label: '通信ノイズ', value: `${latestRound.sabotageCount}件`, tone: 'sabotage' });
+  }
+  if (latestRound.baseDamage > 0) {
+    events.push({ key: 'base', label: '拠点被弾', value: `-${latestRound.baseDamage}`, tone: 'danger' });
+  }
+  if (latestRound.bossHealing > 0) {
+    events.push({ key: 'heal', label: 'ボス回復', value: `+${latestRound.bossHealing}`, tone: 'heal' });
+  }
+  return events.slice(0, 5);
 }
 
 function PartyStatusBoard({ engine }: { engine: GameEngine }) {
@@ -565,8 +655,16 @@ function TargetSelect({
 
 function PlayerCard({ player, engine, onChange }: { player: Player; engine: GameEngine; onChange: () => void }) {
   const submittedAction = engine.state.submittedActions[player.id];
+  const recentRound = engine.state.history.at(-1);
+  const recentAction = recentRound?.actions[player.id];
+  const wasSabotaged = recentRound?.sabotagedPlayerIds.includes(player.id);
+  const cardClassName = [
+    'player-card',
+    recentAction ? `acted ${actionToneClass(recentAction)}` : '',
+    wasSabotaged ? 'sabotaged' : '',
+  ].filter(Boolean).join(' ');
   return (
-    <article className="player-card">
+    <article className={cardClassName}>
       <div className="player-topline">
         <h3>{player.name}</h3>
         <span>{controlLabel(player)}</span>
@@ -574,6 +672,11 @@ function PlayerCard({ player, engine, onChange }: { player: Player; engine: Game
       <div className="turret-avatar">
         <span />
       </div>
+      {recentAction && (
+        <div className={`action-spark ${actionToneClass(recentAction)}`}>
+          {actionLabel(recentAction, engine.state.mode)}
+        </div>
+      )}
       <dl>
         <div>
           <dt>役職</dt>
@@ -608,6 +711,14 @@ function PlayerCard({ player, engine, onChange }: { player: Player; engine: Game
       </div>
     </article>
   );
+}
+
+function actionToneClass(type: ActionType): string {
+  if (type === 'defend') return 'guard';
+  if (type === 'repair') return 'repair';
+  if (type === 'sabotage') return 'sabotage';
+  if (type === 'boss_heal') return 'heal';
+  return 'attack';
 }
 
 function BattleGauge({

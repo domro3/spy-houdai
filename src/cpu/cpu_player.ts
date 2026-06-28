@@ -264,6 +264,9 @@ function choosePartyGunnerAction(state: GameState, player: Player, rng: RandomSo
   const baseRate = state.baseHp / state.baseMaxHp;
   const bossRate = state.bossHp / state.bossMaxHp;
   const bossAction = state.currentBossAction;
+  const recent = state.history.at(-1);
+  const recentRepairRate = recent ? recent.repairCount / state.players.length : 0;
+  const recentDefenseRate = recent ? recent.defenseCount / state.players.length : 0;
   const options: Array<{ value: ActionType; weight: number }> = [
     { value: 'normal_attack', weight: 62 },
     { value: 'defend', weight: 12 },
@@ -271,25 +274,46 @@ function choosePartyGunnerAction(state: GameState, player: Player, rng: RandomSo
   ];
 
   if (bossAction.type === 'big_charge') {
-    adjust(options, 'defend', 42);
-    adjust(options, 'normal_attack', -10);
+    adjust(options, 'defend', baseRate <= 0.45 ? 62 : 48);
+    adjust(options, 'normal_attack', baseRate <= 0.45 ? -18 : -10);
+    adjust(options, 'repair', baseRate <= 0.35 ? 8 : -6);
   }
   if (bossAction.type === 'target_lock' && bossAction.targetPlayerId === player.id) {
-    adjust(options, 'defend', 70);
-    adjust(options, 'normal_attack', -18);
+    adjust(options, 'defend', 88);
+    adjust(options, 'normal_attack', -24);
+    adjust(options, 'repair', -10);
+  } else if (bossAction.type === 'target_lock' && baseRate <= 0.45) {
+    adjust(options, 'repair', 18);
+    adjust(options, 'normal_attack', -6);
   }
   if (bossAction.type === 'armor_regen') {
     adjust(options, 'normal_attack', 44);
     adjust(options, 'defend', -8);
     adjust(options, 'repair', baseRate <= 0.3 ? 0 : -5);
   }
+  if (bossAction.type === 'normal_attack' && baseRate <= 0.4) {
+    adjust(options, 'repair', 22);
+    adjust(options, 'defend', 10);
+  }
   if (baseRate <= 0.35) {
     adjust(options, 'repair', 42);
     adjust(options, 'normal_attack', -12);
   }
+  if (baseRate <= 0.25) {
+    adjust(options, 'repair', 36);
+    adjust(options, 'normal_attack', -14);
+  }
   if (bossRate <= 0.22) {
     adjust(options, 'normal_attack', 28);
     adjust(options, 'repair', -8);
+  }
+  if (recentRepairRate >= 0.35 && baseRate >= 0.55) {
+    adjust(options, 'repair', -12);
+    adjust(options, 'normal_attack', 8);
+  }
+  if (recentDefenseRate >= 0.45 && bossAction.type !== 'big_charge') {
+    adjust(options, 'defend', -10);
+    adjust(options, 'normal_attack', 6);
   }
 
   return weightedChoice(options, rng);
@@ -298,18 +322,20 @@ function choosePartyGunnerAction(state: GameState, player: Player, rng: RandomSo
 function choosePartySpyAction(state: GameState, player: Player, rng: RandomSource): ActionType {
   const bossRate = state.bossHp / state.bossMaxHp;
   const baseRate = state.baseHp / state.baseMaxHp;
+  const previousSpyAction = state.history.at(-1)?.actions[player.id];
+  const highSuspicion = player.suspicion >= 4;
   const options: Array<{ value: ActionType; weight: number }> = [
-    { value: 'normal_attack', weight: state.round <= 2 ? 22 : 10 },
-    { value: 'defend', weight: 8 },
-    { value: 'repair', weight: baseRate <= 0.55 ? 14 : 4 },
-    { value: 'fake_attack', weight: state.round <= 2 ? 30 : 22 },
-    { value: 'sabotage', weight: state.round <= 2 ? 25 : 42 },
-    { value: 'boss_heal', weight: state.round <= 2 ? 12 : 30 },
+    { value: 'normal_attack', weight: state.round <= 2 ? 24 : 16 },
+    { value: 'defend', weight: highSuspicion ? 16 : 8 },
+    { value: 'repair', weight: baseRate <= 0.55 ? 18 : 6 },
+    { value: 'fake_attack', weight: state.round <= 2 ? 28 : 22 },
+    { value: 'sabotage', weight: state.round <= 2 ? 18 : 34 },
+    { value: 'boss_heal', weight: state.round <= 2 ? 10 : 26 },
   ];
 
   if (state.currentBossAction.type === 'big_charge') {
     adjust(options, 'defend', 16);
-    adjust(options, 'sabotage', 24);
+    adjust(options, 'sabotage', highSuspicion ? 6 : 24);
     adjust(options, 'fake_attack', -6);
   }
   if (state.currentBossAction.type === 'target_lock') {
@@ -318,7 +344,7 @@ function choosePartySpyAction(state: GameState, player: Player, rng: RandomSourc
       adjust(options, 'sabotage', -10);
       adjust(options, 'boss_heal', -10);
     } else {
-      adjust(options, 'sabotage', 24);
+      adjust(options, 'sabotage', highSuspicion ? 8 : 24);
       adjust(options, 'fake_attack', -6);
     }
   }
@@ -329,15 +355,38 @@ function choosePartySpyAction(state: GameState, player: Player, rng: RandomSourc
   }
   if (bossRate <= 0.28) {
     adjust(options, 'boss_heal', 30);
-    adjust(options, 'sabotage', 10);
+    adjust(options, 'sabotage', 16);
     adjust(options, 'fake_attack', -12);
     adjust(options, 'normal_attack', -10);
   }
   if (baseRate <= 0.35) {
-    adjust(options, 'repair', 24);
-    adjust(options, 'normal_attack', 8);
+    adjust(options, 'sabotage', 18);
+    adjust(options, 'repair', highSuspicion ? 28 : 12);
+    adjust(options, 'normal_attack', highSuspicion ? 14 : 6);
     adjust(options, 'fake_attack', 16);
     adjust(options, 'boss_heal', -10);
+  }
+  if (highSuspicion) {
+    adjust(options, 'normal_attack', 26);
+    adjust(options, 'defend', 18);
+    adjust(options, 'repair', baseRate <= 0.55 ? 20 : 8);
+    adjust(options, 'sabotage', -24);
+    adjust(options, 'boss_heal', -18);
+    adjust(options, 'fake_attack', -8);
+  }
+  if (previousSpyAction === 'sabotage') {
+    adjust(options, 'sabotage', -20);
+    adjust(options, 'normal_attack', 12);
+    adjust(options, 'defend', 8);
+  }
+  if (previousSpyAction === 'boss_heal') {
+    adjust(options, 'boss_heal', -18);
+    adjust(options, 'fake_attack', 8);
+    adjust(options, 'repair', 8);
+  }
+  if (previousSpyAction === 'fake_attack' && bossRate <= 0.35) {
+    adjust(options, 'normal_attack', 10);
+    adjust(options, 'boss_heal', 8);
   }
 
   return weightedChoice(options, rng);
@@ -361,6 +410,8 @@ function choosePartyVote(state: GameState, voter: Player, rng: RandomSource): st
 
 function partySabotageTargetWeight(state: GameState, candidate: Player): number {
   const bossAction = state.currentBossAction;
+  const baseRate = state.baseHp / state.baseMaxHp;
+  const bossRate = state.bossHp / state.bossMaxHp;
   if (bossAction.type === 'target_lock' && bossAction.targetPlayerId === candidate.id) return 5;
   if (bossAction.type === 'big_charge') {
     if (candidate.cpuProfile === 'defender') return 4;
@@ -370,6 +421,14 @@ function partySabotageTargetWeight(state: GameState, candidate: Player): number 
   if (bossAction.type === 'armor_regen') {
     if (candidate.cpuProfile === 'attacker') return 4;
     if (candidate.cpuProfile === 'follower') return 2;
+  }
+  if (baseRate <= 0.4) {
+    if (candidate.cpuProfile === 'support') return 4;
+    if (candidate.cpuProfile === 'defender') return 2.5;
+  }
+  if (bossRate <= 0.3) {
+    if (candidate.cpuProfile === 'attacker') return 4;
+    if (candidate.cpuProfile === 'follower') return 2.5;
   }
   return 1;
 }

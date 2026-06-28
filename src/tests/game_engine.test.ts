@@ -573,6 +573,8 @@ function emptySummary(round: number): RoundSummary {
     repairCount: 0,
     defenseCount: 0,
     sabotageCount: 0,
+    actions: {},
+    sabotagedPlayerIds: [],
     remainingBossHp: 0,
     remainingBaseHp: 100,
     scrambleLog: false,

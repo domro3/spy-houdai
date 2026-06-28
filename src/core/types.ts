@@ -146,6 +146,8 @@ export interface RoundSummary {
   repairCount: number;
   defenseCount: number;
   sabotageCount: number;
+  actions: Record<string, ActionType>;
+  sabotagedPlayerIds: string[];
   remainingBossHp: number;
   remainingBaseHp: number;
   scrambleLog: boolean;
