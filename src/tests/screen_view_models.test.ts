@@ -6,7 +6,8 @@ import { createHostScreenViewModel, createPlayerScreenViewModel } from '../scree
 describe('local screen routes', () => {
   it('parses host, player, debug, and fallback routes without networking state', () => {
     expect(parseLocalRoute('/')).toMatchObject({ view: 'split', path: '/' });
-    expect(parseLocalRoute('/host')).toMatchObject({ view: 'host', path: '/host' });
+    expect(parseLocalRoute('/board')).toMatchObject({ view: 'board', path: '/board' });
+    expect(parseLocalRoute('/host')).toMatchObject({ view: 'board', path: '/host' });
     expect(parseLocalRoute('/debug')).toMatchObject({ view: 'debug', path: '/debug' });
     expect(parseLocalRoute('/player/p2')).toMatchObject({ view: 'player', playerId: 'p2' });
     expect(parseLocalRoute('/player/p9')).toMatchObject({ view: 'player', invalidPlayerId: 'p9' });

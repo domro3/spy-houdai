@@ -105,7 +105,7 @@ function WaitingForHost({
   return (
     <div className="manual-card">
       <h3>{playerId} はホスト画面を待っています</h3>
-      <p className="muted">同じブラウザで /host を開くと、この画面にプレイヤー表示が届きます。</p>
+      <p className="muted">同じブラウザで /board を開くと、この画面にプレイヤー表示が届きます。</p>
       <button type="button" className="icon-button primary" onClick={client.requestSnapshot}>
         <RefreshCcw size={18} />
         ホストを探す
@@ -173,7 +173,7 @@ function SyncedControls({
       {view.phase === 'branch' && <SyncedBranchControls view={view} onSubmit={client.submitBranchVote} />}
       <PrivateLogList logs={view.privateLogs.slice(-4)} />
       <SyncErrors errors={client.errors} />
-      <p className="muted">この画面はローカル同期プロトタイプです。入力は /host のGameCoreへ送信されます。</p>
+      <p className="muted">この画面はローカル同期プロトタイプです。入力は /board のGameCoreへ送信されます。</p>
     </div>
   );
 }

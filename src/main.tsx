@@ -49,7 +49,7 @@ function App() {
   }, []);
 
   const rerender = () => forceRender((value) => value + 1);
-  const hostSyncEnabled = screenView === 'host';
+  const hostSyncEnabled = screenView === 'board';
   const hostSync = useLocalHostSession({
     enabled: hostSyncEnabled,
     engine,
@@ -129,7 +129,7 @@ function App() {
         {screenView === 'player' || screenView === 'debug' ? (
           <div className="setup-controls readonly-route-note">
             <strong>{screenView === 'player' ? 'Player client view' : 'Debug view'}</strong>
-            <span>ゲーム操作は /host または / のローカル開発シェルで行います。</span>
+            <span>ゲーム操作は /board または / のローカル開発シェルで行います。</span>
           </div>
         ) : (
           <div className="setup-controls">
@@ -176,7 +176,7 @@ function App() {
               画面
               <select value={screenView} onChange={(event) => setLocalView(event.target.value as LocalScreenView)}>
                 <option value="split">Host + Player</option>
-                <option value="host">Host only</option>
+                <option value="board">Board only</option>
                 <option value="player">Player only</option>
                 <option value="debug">Debug only</option>
               </select>
@@ -185,7 +185,7 @@ function App() {
               <Play size={18} />
               開始
             </button>
-            {screenView === 'host' && (
+            {screenView === 'board' && (
               <>
                 <button type="button" className="icon-button" onClick={autoFillCurrentPhase} disabled={state.phase === 'finished'}>
                   <Bot size={18} />
@@ -216,7 +216,7 @@ function App() {
         activePlayerId={safeActivePlayerId}
         onNavigate={navigateLocal}
       />
-      {screenView === 'host' && <SyncStatusPanel status={hostSync.status} />}
+      {screenView === 'board' && <SyncStatusPanel status={hostSync.status} />}
 
       {(localRoute.invalidPath || localRoute.invalidPlayerId || (localRoute.view === 'player' && !routePlayerExists)) && (
         <RouteNotice
@@ -227,7 +227,7 @@ function App() {
       )}
 
       <section className={`screen-shell ${screenView}`}>
-        {(screenView === 'split' || screenView === 'host') && <HostScreen engine={engine} />}
+        {(screenView === 'split' || screenView === 'board') && <HostScreen engine={engine} />}
         {screenView === 'split' && (
           <PlayerScreen
             engine={engine}
@@ -281,7 +281,7 @@ function LocalRouteBar({
 }) {
   const routeLinks = [
     { path: '/', label: 'Dev Shell', active: activeView === 'split' },
-    { path: '/host', label: 'Host', active: activeView === 'host' },
+    { path: '/board', label: 'Board', active: activeView === 'board' },
     ...players.map((player, index) => ({
       path: `/player/${player.id}`,
       label: `P${index + 1}`,

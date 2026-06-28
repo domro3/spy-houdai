@@ -166,7 +166,7 @@ input {
   align-items: start;
 }
 
-.screen-shell.host,
+.screen-shell.board,
 .screen-shell.player,
 .screen-shell.debug {
   grid-template-columns: 1fr;
