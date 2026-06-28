@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Bot, Play } from 'lucide-react';
+import { Bot, Play, RefreshCcw } from 'lucide-react';
 import { GameEngine } from './core/game_engine';
 import type { GameMode } from './core/types';
 import { fillCpuActions, fillCpuBranchVotes, fillCpuPleas, fillCpuVotes, runCpuGame } from './cpu/autoplay';
@@ -10,6 +10,7 @@ import { DebugPanel } from './screens/DebugPanel';
 import { HostScreen } from './screens/HostScreen';
 import { localPathForView, parseLocalRoute, type LocalScreenView } from './screens/local_routes';
 import { PlayerScreen } from './screens/PlayerScreen';
+import { canResolveCurrentPhase } from './screens/screen_state';
 import { SyncedPlayerScreen } from './screens/SyncedPlayerScreen';
 import './styles.css';
 
@@ -184,6 +185,23 @@ function App() {
               <Play size={18} />
               開始
             </button>
+            {screenView === 'host' && (
+              <>
+                <button type="button" className="icon-button" onClick={autoFillCurrentPhase} disabled={state.phase === 'finished'}>
+                  <Bot size={18} />
+                  CPU入力
+                </button>
+                <button
+                  type="button"
+                  className="icon-button primary"
+                  onClick={resolvePhase}
+                  disabled={!canResolveCurrentPhase(engine)}
+                >
+                  <RefreshCcw size={18} />
+                  解決
+                </button>
+              </>
+            )}
             <button type="button" className="icon-button" onClick={startCpuOnly} title="CPUだけで最後まで実行">
               <Bot size={18} />
               CPU完走
