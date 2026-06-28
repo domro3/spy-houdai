@@ -151,13 +151,41 @@ input {
 }
 
 .screen-shell.host,
-.screen-shell.player {
+.screen-shell.player,
+.screen-shell.debug {
   grid-template-columns: 1fr;
+}
+
+.screen-shell.debug {
+  display: none;
 }
 
 .host-screen {
   display: grid;
   gap: 16px;
+}
+
+.route-notice {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 14px;
+  padding: 11px 13px;
+  border-radius: 8px;
+  background: #fff8e6;
+  border: 1px solid rgb(122 61 0 / 18%);
+}
+
+.route-notice strong {
+  color: #7a3d00;
+}
+
+.route-notice span {
+  color: #5c6670;
+  font-size: 0.86rem;
+  font-weight: 800;
+  text-align: right;
 }
 
 .status-grid {
@@ -1200,12 +1228,14 @@ dd {
 
   .central-header,
   .control-header,
-  .view-switcher {
+  .view-switcher,
+  .route-notice {
     align-items: flex-start;
     flex-direction: column;
   }
 
-  .view-switcher span {
+  .view-switcher span,
+  .route-notice span {
     text-align: left;
   }
 }

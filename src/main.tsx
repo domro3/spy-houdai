@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Bot, Play } from 'lucide-react';
 import { GameEngine } from './core/game_engine';
@@ -6,19 +6,18 @@ import type { GameMode } from './core/types';
 import { fillCpuActions, fillCpuBranchVotes, fillCpuPleas, fillCpuVotes, runCpuGame } from './cpu/autoplay';
 import { DebugPanel } from './screens/DebugPanel';
 import { HostScreen } from './screens/HostScreen';
+import { localPathForView, parseLocalRoute, type LocalScreenView } from './screens/local_routes';
 import { PlayerScreen } from './screens/PlayerScreen';
 import './styles.css';
 
-type LocalScreenView = 'split' | 'host' | 'player';
-
-const INITIAL_LOCAL_ROUTE = readInitialLocalRoute();
+const INITIAL_LOCAL_ROUTE = parseLocalRoute(window.location.pathname);
 
 function App() {
   const [totalPlayers, setTotalPlayers] = useState(5);
   const [humanPlayers, setHumanPlayers] = useState(1);
   const [seed, setSeed] = useState(20260627);
   const [mode, setMode] = useState<GameMode>('party');
-  const [screenView, setScreenView] = useState<LocalScreenView>(INITIAL_LOCAL_ROUTE.view);
+  const [localRoute, setLocalRoute] = useState(INITIAL_LOCAL_ROUTE);
   const [activePlayerId, setActivePlayerId] = useState(INITIAL_LOCAL_ROUTE.playerId ?? 'p1');
   const [engine, setEngine] = useState(() => new GameEngine({
     totalPlayers: 5,
@@ -29,11 +28,43 @@ function App() {
   const [, forceRender] = useState(0);
 
   const state = engine.state;
-  const safeActivePlayerId = state.players.some((player) => player.id === activePlayerId)
-    ? activePlayerId
+  const routedPlayerId = localRoute.view === 'player' ? localRoute.playerId : undefined;
+  const requestedPlayerId = routedPlayerId ?? activePlayerId;
+  const routePlayerExists = requestedPlayerId
+    ? state.players.some((player) => player.id === requestedPlayerId)
+    : false;
+  const safeActivePlayerId = routePlayerExists
+    ? requestedPlayerId
     : state.players[0]?.id ?? 'p1';
+  const screenView = localRoute.view;
+
+  useEffect(() => {
+    const onPopState = () => setLocalRoute(parseLocalRoute(window.location.pathname));
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
 
   const rerender = () => forceRender((value) => value + 1);
+
+  function navigateLocal(path: string) {
+    const nextRoute = parseLocalRoute(path);
+    window.history.pushState(null, '', path);
+    setLocalRoute(nextRoute);
+    if (nextRoute.playerId) {
+      setActivePlayerId(nextRoute.playerId);
+    }
+  }
+
+  function setLocalView(view: LocalScreenView) {
+    navigateLocal(localPathForView(view, safeActivePlayerId));
+  }
+
+  function setPlayerView(playerId: string) {
+    setActivePlayerId(playerId);
+    if (screenView === 'player') {
+      navigateLocal(localPathForView('player', playerId));
+    }
+  }
 
   function resetGame() {
     setEngine(new GameEngine({ totalPlayers, humanPlayers, seed, mode }));
@@ -116,10 +147,11 @@ function App() {
           </label>
           <label>
             画面
-            <select value={screenView} onChange={(event) => setScreenView(event.target.value as LocalScreenView)}>
+            <select value={screenView} onChange={(event) => setLocalView(event.target.value as LocalScreenView)}>
               <option value="split">Host + Player</option>
               <option value="host">Host only</option>
               <option value="player">Player only</option>
+              <option value="debug">Debug only</option>
             </select>
           </label>
           <button type="button" className="icon-button primary" onClick={resetGame} title="新規ゲーム">
@@ -133,13 +165,21 @@ function App() {
         </div>
       </section>
 
+      {(localRoute.invalidPath || localRoute.invalidPlayerId || (localRoute.view === 'player' && !routePlayerExists)) && (
+        <RouteNotice
+          invalidPath={localRoute.invalidPath}
+          invalidPlayerId={localRoute.invalidPlayerId ?? (localRoute.view === 'player' ? requestedPlayerId : undefined)}
+          fallbackPlayerId={safeActivePlayerId}
+        />
+      )}
+
       <section className={`screen-shell ${screenView}`}>
-        {screenView !== 'player' && <HostScreen engine={engine} />}
-        {screenView !== 'host' && (
+        {(screenView === 'split' || screenView === 'host') && <HostScreen engine={engine} />}
+        {(screenView === 'split' || screenView === 'player') && (
           <PlayerScreen
             engine={engine}
             activePlayerId={safeActivePlayerId}
-            onActivePlayerChange={setActivePlayerId}
+            onActivePlayerChange={setPlayerView}
             onAutoFillCurrentPhase={autoFillCurrentPhase}
             onResolvePhase={resolvePhase}
             onChange={rerender}
@@ -147,17 +187,30 @@ function App() {
         )}
       </section>
 
-      <DebugPanel engine={engine} />
+      {(screenView === 'split' || screenView === 'debug') && <DebugPanel engine={engine} />}
     </main>
   );
 }
 
-function readInitialLocalRoute(): { view: LocalScreenView; playerId?: string } {
-  const path = window.location.pathname.replace(/\/+$/, '') || '/';
-  if (path === '/host') return { view: 'host' };
-  const playerMatch = path.match(/^\/player\/(p[1-6])$/);
-  if (playerMatch) return { view: 'player', playerId: playerMatch[1] };
-  return { view: 'split' };
+function RouteNotice({
+  invalidPath,
+  invalidPlayerId,
+  fallbackPlayerId,
+}: {
+  invalidPath?: string;
+  invalidPlayerId?: string;
+  fallbackPlayerId: string;
+}) {
+  return (
+    <section className="route-notice">
+      <strong>ローカル表示ルートを確認してください</strong>
+      {invalidPath ? (
+        <span>{invalidPath} は未定義です。開発シェルを表示しています。</span>
+      ) : (
+        <span>{invalidPlayerId} は現在のプレイヤーとして使えません。{fallbackPlayerId} を表示しています。</span>
+      )}
+    </section>
+  );
 }
 
 createRoot(document.getElementById('root')!).render(<App />);
