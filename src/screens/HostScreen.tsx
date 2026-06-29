@@ -1,6 +1,13 @@
 import { Trophy } from 'lucide-react';
-import { PrototypeAssetImage } from '../assets/PrototypeAssetImage';
-import { prototypeAssets, turretPrototypeAsset } from '../assets/prototype_assets';
+import {
+  BossUnlinkMk01,
+  CoreGuardTurret,
+  GameBackdrop,
+  GameEffect,
+  LinkCoreVisual,
+  type BossMk01State,
+  type LinkCoreState,
+} from '../components/game/assets/visual/GameVisualAssets';
 import { bossActionLabel, bossForecastLabel, GameEngine } from '../core/game_engine';
 import type { BossActionType, RoundSummary } from '../core/types';
 import {
@@ -21,7 +28,7 @@ import { createHostScreenViewModel, type HostPlayerView, type HostVoteView } fro
 export function HostScreen({ engine }: { engine: GameEngine }) {
   const hostView = createHostScreenViewModel(engine);
   return (
-    <section className="host-screen" aria-label="戦況スクリーン">
+    <section className="host-screen board-battle-screen" aria-label="戦況スクリーン">
       <CentralStatusPanel engine={engine} />
       {engine.state.phase === 'finished' && <ResultView engine={engine} />}
       <HostVoteResult votes={hostView.latestVotes} />
@@ -47,7 +54,8 @@ function CentralStatusPanel({ engine }: { engine: GameEngine }) {
   const baseWarning = state.mode === 'party' ? partyBaseWarning(state.baseHp) : undefined;
 
   return (
-    <section className="central-panel" aria-label="中央状況">
+    <section className="central-panel game-panel panel-status" aria-label="中央状況">
+      <GameBackdrop variant="boss-battle" />
       <div className="central-header">
         <div>
           <span className="section-kicker">戦況スクリーン</span>
@@ -129,6 +137,7 @@ function BoardFlowBanner({
       </div>
       {allReady ? (
         <div className="sync-countdown" aria-label="自動解決カウントダウン">
+          <GameEffect name="sync-complete" />
           <span>3</span>
           <span>2</span>
           <span>1</span>
@@ -192,22 +201,26 @@ function BattleTheater({ engine }: { engine: GameEngine }) {
     latestRound?.repairs ? 'repairing' : '',
     partyBaseWarning(state.baseHp)?.level ?? '',
   ].filter(Boolean).join(' ');
+  const bossVisualState = bossStateForTheater({
+    bossWarning,
+    latestRound,
+    baseCritical: partyBaseWarning(state.baseHp)?.level === 'critical',
+  });
+  const coreVisualState = linkCoreStateForTheater({
+    baseWarning: partyBaseWarning(state.baseHp)?.level,
+    latestRound,
+  });
 
   return (
-    <section className="battle-theater" aria-label="公開戦況ステージ">
+    <section className="battle-theater bg-boss-battle" aria-label="公開戦況ステージ">
+      <GameBackdrop variant="boss-battle" />
       <div className="boss-arena">
         <div className="theater-label">
-          <span>巨大ボス</span>
-          <strong>{state.boss.name}</strong>
+          <span>敵性存在</span>
+          <strong>アンリンクMK-01</strong>
         </div>
         <div className={bossClasses}>
-          <PrototypeAssetImage
-            src={prototypeAssets.boss}
-            alt="ボス"
-            className="boss-asset"
-            fallback={null}
-          />
-          <BossFallbackVisual />
+          <BossUnlinkMk01 state={bossVisualState} />
         </div>
         <TheaterHp label="BOSS HP" value={state.bossHp} max={state.bossMaxHp} tone="boss" />
         <div className={`danger-readout ${state.currentBossAction.type}`}>
@@ -218,31 +231,25 @@ function BattleTheater({ engine }: { engine: GameEngine }) {
       </div>
 
       <div className="theater-lane" aria-hidden="true">
-        <span className={latestRound?.totalDamage ? 'lane-shot active' : 'lane-shot'} />
-        <span className={latestRound?.sabotageCount ? 'lane-noise active' : 'lane-noise'}>
-          <PrototypeAssetImage
-            src={prototypeAssets.noiseEffect}
-            alt=""
-            className="noise-overlay-asset"
-            fallback={null}
-          />
+        <span className={latestRound?.totalDamage ? 'lane-shot active' : 'lane-shot'}>
+          <GameEffect name="shot-data" active={Boolean(latestRound?.totalDamage)} />
         </span>
-        <span className={latestRound?.defenseCount ? 'lane-shield active' : 'lane-shield'} />
+        <span className={latestRound?.sabotageCount ? 'lane-noise active' : 'lane-noise'}>
+          <GameEffect name="noise-corruption" active={Boolean(latestRound?.sabotageCount)} />
+        </span>
+        <span className={latestRound?.defenseCount ? 'lane-shield active' : 'lane-shield'}>
+          <GameEffect name="guard-barrier" active={Boolean(latestRound?.defenseCount)} />
+        </span>
       </div>
 
       <div className="base-arena">
         <div className="theater-label">
-          <span>砲台基地</span>
-          <strong>拠点耐久</strong>
+          <span>防衛対象</span>
+          <strong>リンクコア</strong>
         </div>
         <div className={baseClasses}>
-          <PrototypeAssetImage
-            src={prototypeAssets.baseCore}
-            alt="拠点コア"
-            className="base-core-asset"
-            fallback={null}
-          />
-          <BaseFallbackVisual />
+          <LinkCoreVisual state={coreVisualState} />
+          {latestRound?.repairs ? <GameEffect name="repair-link" /> : null}
         </div>
         <TheaterHp label="BASE HP" value={state.baseHp} max={state.baseMaxHp} tone="base" />
         <div className="base-readout">
@@ -255,25 +262,32 @@ function BattleTheater({ engine }: { engine: GameEngine }) {
   );
 }
 
-function BossFallbackVisual() {
-  return (
-    <>
-      <span className="boss-eye left" />
-      <span className="boss-eye right" />
-      <span className="boss-cannon" />
-      <span className="boss-core-light" />
-    </>
-  );
+function bossStateForTheater({
+  bossWarning,
+  latestRound,
+  baseCritical,
+}: {
+  bossWarning: boolean;
+  latestRound?: RoundSummary;
+  baseCritical: boolean;
+}): BossMk01State {
+  if (bossWarning) return 'charge';
+  if (baseCritical) return 'danger';
+  if (latestRound?.totalDamage) return 'damaged';
+  if (latestRound?.baseDamage || latestRound?.sabotageCount) return 'attack';
+  return 'idle';
 }
 
-function BaseFallbackVisual() {
-  return (
-    <>
-      <span />
-      <span />
-      <span />
-    </>
-  );
+function linkCoreStateForTheater({
+  baseWarning,
+  latestRound,
+}: {
+  baseWarning?: 'warning' | 'critical';
+  latestRound?: RoundSummary;
+}): LinkCoreState {
+  if (baseWarning === 'critical') return 'critical';
+  if (baseWarning === 'warning' || latestRound?.baseDamage) return 'damage';
+  return 'idle';
 }
 
 function TheaterHp({
@@ -337,14 +351,11 @@ function BattleEventStrip({ engine }: { engine: GameEngine }) {
             sabotagePressure ? 'pressure' : '',
           ].filter(Boolean).join(' ')}
         >
-          <PrototypeAssetImage
-            src={prototypeAssets.noiseEffect}
-            alt=""
-            className="noise-overlay-asset"
-            fallback={null}
-          />
+          <GameEffect name="noise-corruption" active={sabotageActive} />
         </div>
-        <div className={guardActive ? 'shield-ring active' : 'shield-ring'} />
+        <div className={guardActive ? 'shield-ring active' : 'shield-ring'}>
+          <GameEffect name="guard-barrier" active={guardActive} />
+        </div>
         <div
           className={[
             'battle-node',
@@ -522,12 +533,7 @@ function PublicPlayerCard({ player }: { player: HostPlayerView }) {
 function PublicTurretAvatar({ playerId }: { playerId: string }) {
   return (
     <div className="public-turret-visual" aria-hidden="true">
-      <PrototypeAssetImage
-        src={turretPrototypeAsset(playerId)}
-        alt=""
-        className="turret-avatar-asset"
-        fallback={<span className="turret-avatar-fallback" />}
-      />
+      <CoreGuardTurret playerId={playerId} compact />
     </div>
   );
 }
@@ -665,7 +671,7 @@ function AwardRow({
 
 function LogPanel({ title, logs }: { title: string; logs: string[] }) {
   return (
-    <div className="log-panel">
+    <div className="log-panel panel-log">
       <h2>{title}</h2>
       {logs.length === 0 ? (
         <p className="muted">まだログはありません。</p>
@@ -682,7 +688,7 @@ function RoundLogTimeline({ engine }: { engine: GameEngine }) {
   const rounds = engine.state.history.filter((round) => round.publicLogs.length > 0);
   const latestRound = rounds.at(-1);
   return (
-    <div className="log-panel round-timeline">
+    <div className="log-panel round-timeline panel-log">
       <h2>ラウンド別公開ログ</h2>
       {!latestRound ? (
         <p className="muted">ラウンド結果はまだありません。</p>

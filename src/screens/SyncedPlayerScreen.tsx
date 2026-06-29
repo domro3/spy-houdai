@@ -1,33 +1,16 @@
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
+import { RefreshCcw, Trophy, Vote } from 'lucide-react';
 import {
-  Cable,
-  RefreshCcw,
-  ScanSearch,
-  Shield,
-  Swords,
-  Trophy,
-  Vote,
-  Wrench,
-  Zap,
-} from 'lucide-react';
-import { PrototypeAssetImage } from '../assets/PrototypeAssetImage';
-import { turretPrototypeAsset } from '../assets/prototype_assets';
-import type { ActionSubmission, ActionType, BranchPlan, BranchVoteSubmission, VoteSubmission } from '../core/types';
+  CoreGuardTurret,
+  GameBackdrop,
+  GameIcon,
+  actionIconName,
+  turretStateForAction,
+} from '../components/game/assets/visual/GameVisualAssets';
+import type { ActionSubmission, BranchPlan, BranchVoteSubmission, VoteSubmission } from '../core/types';
 import type { LocalPlayerClientState } from '../local_sync/player_client';
 import { PublicBoardPreview } from './PublicBoardPreview';
 import type { PlayerScreenViewModel } from './screen_view_models';
-
-const ACTION_ICONS: Record<ActionType, ReactNode> = {
-  normal_attack: <Swords size={16} />,
-  charge_attack: <Zap size={16} />,
-  defend: <Shield size={16} />,
-  repair: <Wrench size={16} />,
-  scan: <ScanSearch size={16} />,
-  fake_attack: <Swords size={16} />,
-  boss_heal: <Wrench size={16} />,
-  sabotage: <Cable size={16} />,
-  scramble_log: <Cable size={16} />,
-};
 
 export function SyncedPlayerScreen({
   playerId,
@@ -47,6 +30,7 @@ export function SyncedPlayerScreen({
   const noiseTone = view?.wasSabotaged ? 'terminal-noise' : '';
   return (
     <section className={`player-screen action-panel synced-player-screen ${terminalTone} ${noiseTone}`} aria-label="作戦端末">
+      <GameBackdrop variant="operation-terminal" />
       <div className="panel-heading">
         <div>
           <span className="section-kicker">作戦端末</span>
@@ -144,7 +128,11 @@ function WaitingForHost({
   client: { requestSnapshot: () => void; errors: string[] };
 }) {
   return (
-    <div className="manual-card">
+    <div className="manual-card waiting-terminal-card panel-status">
+      <div className="waiting-terminal-visual" aria-hidden="true">
+        <CoreGuardTurret state="idle" playerId={playerId} compact />
+        <GameIcon name="sync" size={32} />
+      </div>
       <h3>{playerId} はホスト画面を待っています</h3>
       <p className="muted">同じブラウザで /board を開くと、この画面にプレイヤー表示が届きます。</p>
       <button type="button" className="icon-button primary" onClick={client.requestSnapshot}>
@@ -204,6 +192,7 @@ function SyncedIdentityPanel({ view }: { view: PlayerScreenViewModel }) {
 function PlayerStepBanner({ view }: { view: PlayerScreenViewModel }) {
   const submitted = playerPhaseSubmitted(view);
   const tone = view.phase === 'finished' ? 'finished' : submitted ? 'submitted' : 'active';
+  const turretState = turretStateForAction(view.selectedActionType, view.wasSabotaged);
   return (
     <section className={`player-step-banner ${tone}`}>
       <div>
@@ -211,12 +200,7 @@ function PlayerStepBanner({ view }: { view: PlayerScreenViewModel }) {
         <strong>{submitted ? playerSubmittedTitle(view) : playerStepTitle(view)}</strong>
       </div>
       <div className="player-step-visual" aria-label={`${view.name}の砲台ユニット`}>
-        <PrototypeAssetImage
-          src={turretPrototypeAsset(view.id)}
-          alt="砲台ユニット"
-          className="terminal-turret-asset"
-          fallback={<span className="terminal-turret-fallback" />}
-        />
+        <CoreGuardTurret state={turretState} playerId={view.id} compact />
       </div>
       <em>{submitted ? '他プレイヤーの入力待ち。揃うと自動で戦況が進みます。' : playerStepBody(view)}</em>
     </section>
@@ -335,7 +319,7 @@ function SyncedActionControls({
         targetId: action.requiresTarget ? targetId : undefined,
       })}
     >
-      {ACTION_ICONS[action.type]}
+      <GameIcon name={actionIconName(action.type)} size={32} />
       <span>
         <strong>{action.label}</strong>
         <small>{action.help}</small>
@@ -344,7 +328,7 @@ function SyncedActionControls({
   );
 
   return (
-    <div className="manual-card action-command-card">
+    <div className="manual-card action-command-card panel-action-card">
       <ControlTitle view={view} title="行動選択" />
       <SelectionStatus label="選択済み" value={view.selectedActionLabel} />
       {view.selectedActionTargetName && <SelectionStatus label="対象" value={view.selectedActionTargetName} />}
@@ -372,7 +356,7 @@ function SyncedActionControls({
 function SyncedPleaControls({ view, onSubmit }: { view: PlayerScreenViewModel; onSubmit: (plea: string) => void }) {
   const submitted = Boolean(view.selectedPlea);
   return (
-    <div className="manual-card action-command-card">
+    <div className="manual-card action-command-card panel-action-card">
       <ControlTitle view={view} title="弁明カード" />
       <SelectionStatus label="選択済み" value={view.selectedPlea ?? '未選択'} />
       <select value={view.selectedPlea ?? ''} disabled={submitted} onChange={(event) => onSubmit(event.target.value)}>
@@ -386,7 +370,7 @@ function SyncedPleaControls({ view, onSubmit }: { view: PlayerScreenViewModel; o
 function SyncedVoteControls({ view, onSubmit }: { view: PlayerScreenViewModel; onSubmit: (vote: VoteSubmission) => void }) {
   const submitted = Boolean(view.selectedVoteTargetId);
   return (
-    <div className="manual-card action-command-card">
+    <div className="manual-card action-command-card panel-action-card">
       <ControlTitle view={view} title={view.mode === 'party' ? 'スパイ予想' : '疑惑投票'} />
       <SelectionStatus label="投票先" value={view.selectedVoteTargetName ?? '未選択'} />
       <div className="choice-grid">
@@ -416,7 +400,7 @@ function SyncedBranchControls({
 }) {
   const submitted = Boolean(view.selectedBranchPlan);
   return (
-    <div className="manual-card action-command-card">
+    <div className="manual-card action-command-card panel-action-card">
       <ControlTitle view={view} title="作戦投票" />
       <SelectionStatus
         label="選択済み"
@@ -432,7 +416,7 @@ function SyncedBranchControls({
             disabled={submitted}
             onClick={() => onSubmit({ voterId: view.id, plan: option.plan as BranchPlan })}
           >
-            <Shield size={16} />
+            <GameIcon name="guard" size={32} />
             <span>{option.label}</span>
           </button>
         ))}
@@ -554,7 +538,7 @@ function TargetSelect({
 function PrivateLogList({ logs }: { logs: string[] }) {
   if (logs.length === 0) return null;
   return (
-    <details className="private-log-peek">
+    <details className="private-log-peek panel-log">
       <summary>個別ログ</summary>
       <ol>
         {logs.map((log, index) => <li key={`${index}-${log}`}>{log}</li>)}

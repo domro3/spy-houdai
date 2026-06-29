@@ -1,8 +1,9 @@
 # M4 Completion Report
 
 作成日: 2026-06-29
+更新日: 2026-06-30
 
-ステータス: M4 Complete / Alpha Playtest Ready
+ステータス: M4 Complete / Alpha Playtest Ready / Mobile HUD follow-up verified
 
 ## 完了定義
 
@@ -16,6 +17,8 @@ M4は、Party Mode Alphaを1PC上でGMなしに進行できる状態まで作り
 - Party Modeの砲台行動、スパイ行動、ボス行動、CPU補完、自動進行を実装した
 - M4.8のゲームフィールUIとして、ボス・拠点・同期状態・通信ノイズ・結果発表を強化した
 - M4.9のプロトタイプ画像を、ボス、拠点、砲台ユニット、通信ノイズに統合した
+- 2026-06-30追補として、スマホファーストPlayer HUDのファーストビューを圧縮し、ボス予告、大技チャージ、HP、拠点耐久、行動ボタンの優先度を整理した
+- 2026-06-30追補として、ボス、リンクコア、砲台ユニット、同期/妨害/防御/修理エフェクトをCSS/SVGベースのゲームビジュアル部品へ整理した
 - 結果発表で勝者、スパイ正体、おまけ投票、称号ハイライトを表示できるようにした
 - `npm run playtest:ai -- --games 100` でAI Alpha Preflightを実行できるようにした
 - Boardに進行中のスパイ正体、スパイ専用行動名、個別ログ、debugLogが混ざらないことを回帰テスト化した
@@ -57,6 +60,21 @@ npm run playtest:ai -- --games 100
 - `npm run sim:party -- --games 100`: Party Mode 100ゲーム完走、砲台チーム勝率57.0%、平均4.66ラウンド
 - `npm run playtest:ai -- --games 100`: PASS
 
+追補確認日: 2026-06-30
+
+```bash
+npm run typecheck
+npm test
+npm run build
+```
+
+追補確認結果:
+
+- `npm run typecheck`: passed
+- `npm test`: 51 passed
+- `npm run build`: passed
+- Chrome/Playwrightで `/board` と `/player/p1` を390px/1280px中心に確認し、ボス、リンクコア、砲台SVGが表示されること、横スクロールが出ないこと、公開画面に秘密情報が漏れないことを確認した
+
 ## 人間スモークチェック
 
 記録日: 2026-06-29
@@ -84,6 +102,12 @@ npm run playtest:ai -- --games 100
 - 「個別状態」という文言が分かりにくい
 - 他プレイヤーの選択待ち時間が退屈に感じられる
 - UIのワクワク感が不足している
+
+2026-06-30追補で進めた改善:
+
+- Player端末のファーストビューで、ボス予告、大技チャージ、HP、拠点耐久、行動入力、行動ボタンが見えるように再整理した
+- 妨害状態をサマリー、状態カード、個別反応で表示し、ログだけに依存しないようにした
+- Board/PlayerのゲームビジュアルをCSS/SVG部品へ寄せ、Public Alpha向けの見た目の土台を強化した
 
 ## 次フェーズ候補
 

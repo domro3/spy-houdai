@@ -1,17 +1,13 @@
 import { useState, type ReactNode } from 'react';
 import {
   Bot,
-  Cable,
   RefreshCcw,
   RotateCcw,
-  ScanSearch,
   Shield,
-  Swords,
   Trophy,
   Vote,
-  Wrench,
-  Zap,
 } from 'lucide-react';
+import { GameIcon } from '../components/game/assets/visual/GameVisualAssets';
 import { GameEngine, requiresTarget } from '../core/game_engine';
 import type { ActionType, Player } from '../core/types';
 import { PLEA_CARDS } from '../data/constants';
@@ -32,15 +28,15 @@ import {
 import { createPlayerScreenViewModel } from './screen_view_models';
 
 const ACTION_ICONS: Record<ActionType, ReactNode> = {
-  normal_attack: <Swords size={16} />,
-  charge_attack: <Zap size={16} />,
-  defend: <Shield size={16} />,
-  repair: <Wrench size={16} />,
-  scan: <ScanSearch size={16} />,
-  fake_attack: <Swords size={16} />,
-  boss_heal: <Wrench size={16} />,
-  sabotage: <Cable size={16} />,
-  scramble_log: <Bot size={16} />,
+  normal_attack: <GameIcon name="attack" size={32} />,
+  charge_attack: <GameIcon name="attack" size={32} />,
+  defend: <GameIcon name="guard" size={32} />,
+  repair: <GameIcon name="repair" size={32} />,
+  scan: <GameIcon name="scan" size={32} />,
+  fake_attack: <GameIcon name="fake-attack" size={32} />,
+  boss_heal: <GameIcon name="spy" size={32} />,
+  sabotage: <GameIcon name="sabotage" size={32} />,
+  scramble_log: <GameIcon name="sabotage" size={32} />,
 };
 
 export function PlayerScreen({
@@ -223,7 +219,7 @@ function PlayerControl({ player, engine, onChange }: { player: Player; engine: G
     );
 
     return (
-      <div className="manual-card">
+      <div className="manual-card panel-action-card">
         <ControlHeader player={player} title="行動選択" engine={engine} />
         <SelectionStatus label="選択済み" value={selectedAction ? actionLabel(selectedAction.type, state.mode) : '未選択'} />
         {selectedAction && requiresTarget(selectedAction.type) && selectedAction.targetId && (
@@ -260,7 +256,7 @@ function PlayerControl({ player, engine, onChange }: { player: Player; engine: G
 
   if (state.phase === 'plea') {
     return (
-      <div className="manual-card">
+      <div className="manual-card panel-action-card">
         <ControlHeader player={player} title="弁明カード" engine={engine} />
         <SelectionStatus label="選択済み" value={state.pleas[player.id] ?? '未選択'} />
         <select
@@ -281,7 +277,7 @@ function PlayerControl({ player, engine, onChange }: { player: Player; engine: G
   if (state.phase === 'vote') {
     const spyCanCoin = state.mode === 'advanced' && player.role === 'spy' && !player.hasUsedCoin;
     return (
-      <div className="manual-card">
+      <div className="manual-card panel-action-card">
         <ControlHeader player={player} title={state.mode === 'party' ? 'スパイ予想' : '疑惑投票'} engine={engine} />
         <SelectionStatus
           label="投票先"
@@ -327,7 +323,7 @@ function PlayerControl({ player, engine, onChange }: { player: Player; engine: G
   if (state.phase === 'branch') {
     const plans = branchOptions(engine.state.branchState.condition);
     return (
-      <div className="manual-card">
+      <div className="manual-card panel-action-card">
         <ControlHeader player={player} title="作戦投票" engine={engine} />
         <SelectionStatus label="選択済み" value={state.branchVotes[player.id] ? branchPlanLabel(state.branchVotes[player.id].plan) : '未選択'} />
         <div className="choice-grid">
@@ -380,7 +376,7 @@ function PrivateLogPeek({ player, engine }: { player: Player; engine: GameEngine
   const logs = engine.state.privateLogs[player.id]?.slice(-4) ?? [];
   if (logs.length === 0) return null;
   return (
-    <div className="private-log-peek">
+    <div className="private-log-peek panel-log">
       <span>個別ログ</span>
       <ol>
         {logs.map((log, index) => <li key={`${player.id}-private-${index}-${log}`}>{log}</li>)}

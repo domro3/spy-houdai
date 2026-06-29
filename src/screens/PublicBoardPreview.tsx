@@ -1,6 +1,10 @@
 import type { HostBoardView, HostPlayerView, HostScreenViewModel, HostVoteView } from './screen_view_models';
-import { PrototypeAssetImage } from '../assets/PrototypeAssetImage';
-import { prototypeAssets } from '../assets/prototype_assets';
+import {
+  BossUnlinkMk01,
+  LinkCoreVisual,
+  type BossMk01State,
+  type LinkCoreState,
+} from '../components/game/assets/visual/GameVisualAssets';
 import { percent } from '../view/format';
 
 export function PublicBoardPreview({ hostView }: { hostView: HostScreenViewModel }) {
@@ -37,15 +41,26 @@ export function PublicBoardPreview({ hostView }: { hostView: HostScreenViewModel
 }
 
 function BoardBossMini({ board }: { board: HostBoardView }) {
+  const bossState = board.bossActionType === 'big_charge'
+    ? 'charge'
+    : board.latestRound?.totalDamage
+      ? 'damaged'
+      : board.latestRound?.sabotageCount || board.latestRound?.baseDamage
+        ? 'attack'
+        : board.baseWarning?.level === 'critical'
+          ? 'danger'
+          : 'idle';
+  const coreState = board.baseWarning?.level === 'critical'
+    ? 'critical'
+    : board.baseWarning || board.latestRound?.baseDamage
+      ? 'damage'
+      : 'idle';
+
   return (
     <div className="player-board-mini" aria-label="ボス戦況ミニビュー">
       <div className="boss-mini-core">
-        <PrototypeAssetImage
-          src={prototypeAssets.boss}
-          alt="ボス"
-          className="boss-mini-asset"
-          fallback={<span className="boss-mini-fallback" />}
-        />
+        <BossUnlinkMk01 state={bossState as BossMk01State} compact />
+        <LinkCoreVisual state={coreState as LinkCoreState} compact />
       </div>
       <div>
         <span>ボス戦況</span>
@@ -214,7 +229,7 @@ function BoardVoteSummary({ votes }: { votes: HostVoteView[] }) {
 function BoardLogPeek({ logs }: { logs: string[] }) {
   if (logs.length === 0) return null;
   return (
-    <details className="player-board-log">
+    <details className="player-board-log panel-log">
       <summary>公開ログ</summary>
       <ol>
         {logs.map((log, index) => {
