@@ -1,8 +1,8 @@
 # Phase 2: Party Mode 追加タスク
 
-ステータス: M4 Complete / AI Alpha Ready
+ステータス: M4 Complete / Alpha Playtest Ready
 
-M4はAIで確認できる範囲を完了し、人間プレイテストはPost-M4確認事項へ移管した。
+M4はAI Alpha PreflightとPost-M4人間スモークチェックを完了し、Alpha Playtest Readyとしてクローズした。
 
 ## 1. 目的
 
@@ -24,6 +24,7 @@ Phase 1完了後、標準入口としてParty Modeを追加する。
 - [x] Party Mode用シミュレーションコマンドを追加する
 - [x] AI Alpha PreflightでCPUプレイ・時間見込み・公開ログ・画面分離を自動確認する
 - [x] M4をAI Alpha Readyとしてクローズし、人間プレイテストをPost-M4確認へ移管する
+- [x] Post-M4人間スモークチェックを記録し、M4をAlpha Playtest Readyと判定する
 
 ## 3. 確認コマンド
 
@@ -46,8 +47,7 @@ npm run playtest:ai -- --games 100
 
 ## 5. AIで進めた到達点
 
-人間プレイテストは未実施のため、最後の体感確認タスクは未完のまま残す。
-ただし、以下はAI Alpha Preflightで確認済みとする。
+以下はAI Alpha Preflightで確認済みとする。
 
 - CPU補完ゲームが100ゲーム完走する
 - 平均プレイ時間見込みが5から8分に収まる
@@ -59,13 +59,21 @@ npm run playtest:ai -- --games 100
 
 証跡: `docs/playtest/ai_alpha_preflight.md`
 
-## 6. Post-M4確認事項
+## 6. Post-M4人間スモークチェック
 
-以下はM4を完了扱いにしたうえで、人間が対応できるタイミングで確認する。
+記録元: `docs/playtest/alpha_checklist.md`
 
-- [ ] 人間プレイテストで1ゲーム5から8分の手触りを確認する
-- [ ] 説明なしでBoardの戦況が読めるか確認する
+- [x] 人間プレイテストで1ゲーム5から8分の手触りを確認する
+- [x] 説明なしでBoardの戦況が読めるか確認する
 - [ ] Player端末だけで次に押す操作が分かるか確認する
 - [ ] 結果発表と称号が盛り上がりにつながるか確認する
 
 M4完了レポート: `docs/playtest/m4_completion_report.md`
+
+## 7. M5以降へ送る改善候補
+
+- Player端末の次操作表示を強める
+- 「個別状態」の文言を見直す
+- スパイ妨害の気づきやすさを上げる
+- 他プレイヤー待ち時間の退屈さを軽減する
+- UIのワクワク感を強める
