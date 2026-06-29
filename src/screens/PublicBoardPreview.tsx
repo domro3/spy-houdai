@@ -1,4 +1,6 @@
 import type { HostBoardView, HostPlayerView, HostScreenViewModel, HostVoteView } from './screen_view_models';
+import { PrototypeAssetImage } from '../assets/PrototypeAssetImage';
+import { prototypeAssets } from '../assets/prototype_assets';
 import { percent } from '../view/format';
 
 export function PublicBoardPreview({ hostView }: { hostView: HostScreenViewModel }) {
@@ -15,9 +17,10 @@ export function PublicBoardPreview({ hostView }: { hostView: HostScreenViewModel
         </div>
       </div>
 
-      <BoardBossAlert board={hostView.board} />
       <BoardVitals board={hostView.board} />
       <BoardProgress board={hostView.board} />
+      <BoardBossMini board={hostView.board} />
+      <BoardBossAlert board={hostView.board} />
       <BoardSituation board={hostView.board} />
       {hostView.board.baseWarning && (
         <div className={`player-board-warning ${hostView.board.baseWarning.level}`}>
@@ -30,6 +33,26 @@ export function PublicBoardPreview({ hostView }: { hostView: HostScreenViewModel
       <BoardVoteSummary votes={hostView.latestVotes} />
       <BoardLogPeek logs={hostView.publicLogs.slice(-3)} />
     </section>
+  );
+}
+
+function BoardBossMini({ board }: { board: HostBoardView }) {
+  return (
+    <div className="player-board-mini" aria-label="ボス戦況ミニビュー">
+      <div className="boss-mini-core">
+        <PrototypeAssetImage
+          src={prototypeAssets.boss}
+          alt="ボス"
+          className="boss-mini-asset"
+          fallback={<span className="boss-mini-fallback" />}
+        />
+      </div>
+      <div>
+        <span>ボス戦況</span>
+        <strong>{board.flowTitle}</strong>
+        <em>{board.bossActionForecast}</em>
+      </div>
+    </div>
   );
 }
 
@@ -191,8 +214,8 @@ function BoardVoteSummary({ votes }: { votes: HostVoteView[] }) {
 function BoardLogPeek({ logs }: { logs: string[] }) {
   if (logs.length === 0) return null;
   return (
-    <div className="player-board-log">
-      <span>公開ログ</span>
+    <details className="player-board-log">
+      <summary>公開ログ</summary>
       <ol>
         {logs.map((log, index) => {
           const event = boardLogEvent(log);
@@ -204,7 +227,7 @@ function BoardLogPeek({ logs }: { logs: string[] }) {
           );
         })}
       </ol>
-    </div>
+    </details>
   );
 }
 

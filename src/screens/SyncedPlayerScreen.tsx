@@ -44,8 +44,9 @@ export function SyncedPlayerScreen({
 }) {
   const view = client.playerView;
   const terminalTone = view?.role === 'スパイ' ? 'terminal-spy' : 'terminal-gunner';
+  const noiseTone = view?.wasSabotaged ? 'terminal-noise' : '';
   return (
-    <section className={`player-screen action-panel synced-player-screen ${terminalTone}`} aria-label="作戦端末">
+    <section className={`player-screen action-panel synced-player-screen ${terminalTone} ${noiseTone}`} aria-label="作戦端末">
       <div className="panel-heading">
         <div>
           <span className="section-kicker">作戦端末</span>
@@ -58,13 +59,15 @@ export function SyncedPlayerScreen({
       </div>
 
       <SyncClientStatus client={client} playerId={playerId} />
+      {view && <PlayerQuickStatus view={view} />}
       <div className={client.hostView ? 'terminal-dashboard-grid' : 'terminal-dashboard-grid solo'}>
         {client.hostView && <PublicBoardPreview hostView={client.hostView} />}
 
         {!view ? (
           <WaitingForHost playerId={playerId} client={client} />
         ) : (
-          <div className="terminal-main-grid">
+          <>
+            <SyncedIdentityPanel view={view} />
             <div className="terminal-command-column">
               {view.phase === 'finished' ? (
                 <SyncedFinishedPanel view={view} />
@@ -75,10 +78,21 @@ export function SyncedPlayerScreen({
                 </>
               )}
             </div>
-            <SyncedIdentityPanel view={view} />
-          </div>
+          </>
         )}
       </div>
+    </section>
+  );
+}
+
+function PlayerQuickStatus({ view }: { view: PlayerScreenViewModel }) {
+  const isSpy = view.role === 'スパイ';
+  return (
+    <section className={`terminal-quick-status ${isSpy ? 'role-spy' : 'role-gunner'} ${view.wasSabotaged ? 'sabotaged' : ''}`}>
+      <span>{view.id}</span>
+      <strong>{isSpy ? 'あなたはスパイ' : 'あなたは砲台員'}</strong>
+      <em>{view.selectedActionLabel}</em>
+      <b>{view.wasSabotaged ? '妨害!' : '通常'}</b>
     </section>
   );
 }
@@ -145,7 +159,7 @@ function WaitingForHost({
 function SyncedIdentityPanel({ view }: { view: PlayerScreenViewModel }) {
   const isSpy = view.role === 'スパイ';
   return (
-    <section className={`player-identity-panel ${isSpy ? 'role-spy' : 'role-gunner'}`}>
+    <section className={`player-identity-panel ${isSpy ? 'role-spy' : 'role-gunner'} ${view.wasSabotaged ? 'sabotaged' : ''}`}>
       <div className="player-topline">
         <div>
           <span className="section-kicker">{view.id}</span>
@@ -158,6 +172,13 @@ function SyncedIdentityPanel({ view }: { view: PlayerScreenViewModel }) {
         <strong>{isSpy ? 'あなたはスパイです' : 'あなたは砲台員です'}</strong>
         <em>{isSpy ? '裏回線の行動はこの端末だけに表示されます。' : 'チーム砲台としてボスを止めます。'}</em>
       </div>
+      {view.wasSabotaged && (
+        <div className="noise-alert-card">
+          <span>妨害!</span>
+          <strong>通信ノイズ</strong>
+          <em>砲身ブレ / 出力低下を検知しました。</em>
+        </div>
+      )}
       <dl className="terminal-status-grid">
         <div>
           <dt>端末状態</dt>
@@ -171,7 +192,7 @@ function SyncedIdentityPanel({ view }: { view: PlayerScreenViewModel }) {
           <dt>前ラウンド</dt>
           <dd>{view.recentActionLabel}</dd>
         </div>
-        <div>
+        <div className={view.wasSabotaged ? 'noise-cell' : ''}>
           <dt>個別反応</dt>
           <dd>{view.wasSabotaged ? '妨害を受けました' : '通常'}</dd>
         </div>
@@ -323,7 +344,7 @@ function SyncedActionControls({
   );
 
   return (
-    <div className="manual-card">
+    <div className="manual-card action-command-card">
       <ControlTitle view={view} title="行動選択" />
       <SelectionStatus label="選択済み" value={view.selectedActionLabel} />
       {view.selectedActionTargetName && <SelectionStatus label="対象" value={view.selectedActionTargetName} />}
@@ -351,7 +372,7 @@ function SyncedActionControls({
 function SyncedPleaControls({ view, onSubmit }: { view: PlayerScreenViewModel; onSubmit: (plea: string) => void }) {
   const submitted = Boolean(view.selectedPlea);
   return (
-    <div className="manual-card">
+    <div className="manual-card action-command-card">
       <ControlTitle view={view} title="弁明カード" />
       <SelectionStatus label="選択済み" value={view.selectedPlea ?? '未選択'} />
       <select value={view.selectedPlea ?? ''} disabled={submitted} onChange={(event) => onSubmit(event.target.value)}>
@@ -365,7 +386,7 @@ function SyncedPleaControls({ view, onSubmit }: { view: PlayerScreenViewModel; o
 function SyncedVoteControls({ view, onSubmit }: { view: PlayerScreenViewModel; onSubmit: (vote: VoteSubmission) => void }) {
   const submitted = Boolean(view.selectedVoteTargetId);
   return (
-    <div className="manual-card">
+    <div className="manual-card action-command-card">
       <ControlTitle view={view} title={view.mode === 'party' ? 'スパイ予想' : '疑惑投票'} />
       <SelectionStatus label="投票先" value={view.selectedVoteTargetName ?? '未選択'} />
       <div className="choice-grid">
@@ -395,7 +416,7 @@ function SyncedBranchControls({
 }) {
   const submitted = Boolean(view.selectedBranchPlan);
   return (
-    <div className="manual-card">
+    <div className="manual-card action-command-card">
       <ControlTitle view={view} title="作戦投票" />
       <SelectionStatus
         label="選択済み"
@@ -533,12 +554,12 @@ function TargetSelect({
 function PrivateLogList({ logs }: { logs: string[] }) {
   if (logs.length === 0) return null;
   return (
-    <div className="private-log-peek">
-      <span>個別ログ</span>
+    <details className="private-log-peek">
+      <summary>個別ログ</summary>
       <ol>
         {logs.map((log, index) => <li key={`${index}-${log}`}>{log}</li>)}
       </ol>
-    </div>
+    </details>
   );
 }
 
