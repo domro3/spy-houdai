@@ -14,6 +14,7 @@ import { PrototypeAssetImage } from '../assets/PrototypeAssetImage';
 import { turretPrototypeAsset } from '../assets/prototype_assets';
 import type { ActionSubmission, ActionType, BranchPlan, BranchVoteSubmission, VoteSubmission } from '../core/types';
 import type { LocalPlayerClientState } from '../local_sync/player_client';
+import { PublicBoardPreview } from './PublicBoardPreview';
 import type { PlayerScreenViewModel } from './screen_view_models';
 
 const ACTION_ICONS: Record<ActionType, ReactNode> = {
@@ -57,6 +58,7 @@ export function SyncedPlayerScreen({
       </div>
 
       <SyncClientStatus client={client} playerId={playerId} />
+      {client.hostView && <PublicBoardPreview hostView={client.hostView} />}
 
       {!view ? (
         <WaitingForHost playerId={playerId} client={client} />

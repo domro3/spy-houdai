@@ -66,6 +66,15 @@ describe('local host session', () => {
     expect(transport.sent.map((message) => message.type)).toContain('host_hello');
     expect(transport.sent.map((message) => message.type)).toContain('state_snapshot');
     expect(transport.sent.filter((message) => message.type === 'player_view')).toHaveLength(4);
+    const snapshot = transport.sent.find((message): message is Extract<LocalSyncMessage, { type: 'state_snapshot' }> => (
+      message.type === 'state_snapshot'
+    ));
+    expect(snapshot?.payload.hostView.board).toMatchObject({
+      phaseLabel: '行動選択',
+      round: 1,
+      ready: 0,
+      readyTotal: 1,
+    });
 
     transport.sent = [];
     transport.emit(createLocalSyncMessage('player_hello', 'player', { playerId: 'p1' }));

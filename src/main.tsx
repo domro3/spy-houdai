@@ -139,7 +139,7 @@ function App() {
         ) : screenView === 'player' ? (
           <div className="setup-controls readonly-route-note">
             <strong>作戦端末</strong>
-            <span>自分の行動・投票だけを送信します。</span>
+            <span>中央画面を見ながら、自分の行動・投票だけを送信します。</span>
           </div>
         ) : (
           <div className="setup-controls">

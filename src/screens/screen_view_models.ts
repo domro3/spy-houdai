@@ -1,8 +1,16 @@
-import { requiresTarget, type GameEngine } from '../core/game_engine';
-import type { ActionType, BranchPlan, GameMode, GamePhase } from '../core/types';
+import { bossActionLabel, bossForecastLabel, requiresTarget, type GameEngine } from '../core/game_engine';
+import type { ActionType, BossActionType, BranchPlan, GameMode, GamePhase } from '../core/types';
 import { PLEA_CARDS } from '../data/constants';
 import { actionHelp, actionLabel, branchHelp, branchPlanLabel, controlLabel, roleLabel, suspicionStars } from '../view/format';
-import { branchOptions, phaseInstruction } from './screen_state';
+import {
+  branchOptions,
+  partyBaseWarning,
+  partyBossHint,
+  phaseInputLabel,
+  phaseInstruction,
+  phaseLabel,
+  phaseReadyCount,
+} from './screen_state';
 
 export interface HostPlayerView {
   id: string;
@@ -20,7 +28,49 @@ export interface HostVoteView {
   count: number;
 }
 
+export interface HostBoardView {
+  mode: GameMode;
+  modeLabel: string;
+  phase: GamePhase;
+  phaseLabel: string;
+  round: number;
+  maxRounds: number;
+  flowKicker: string;
+  flowTitle: string;
+  flowBody: string;
+  bossName: string;
+  bossHp: number;
+  bossMaxHp: number;
+  bossActionType: BossActionType;
+  bossActionLabel: string;
+  bossActionForecast: string;
+  bossTargetName?: string;
+  baseHp: number;
+  baseMaxHp: number;
+  baseWarning?: {
+    level: 'warning' | 'critical';
+    title: string;
+    body: string;
+  };
+  inputLabel: string;
+  ready: number;
+  readyTotal: number;
+  latestRound?: {
+    round: number;
+    totalDamage: number;
+    bossHealing: number;
+    baseDamage: number;
+    repairs: number;
+    defenseCount: number;
+    sabotageCount: number;
+    sabotagePressure: boolean;
+  };
+  monitoredName?: string;
+  monitoredSuspicion?: string;
+}
+
 export interface HostScreenViewModel {
+  board: HostBoardView;
   players: HostPlayerView[];
   publicLogs: string[];
   latestVotes: HostVoteView[];
@@ -77,6 +127,7 @@ export function createHostScreenViewModel(engine: GameEngine): HostScreenViewMod
   }));
 
   return {
+    board: createHostBoardView(engine),
     players: state.players.map((player) => {
       const input = publicInputStatus(engine, player.id);
       return {
@@ -92,6 +143,89 @@ export function createHostScreenViewModel(engine: GameEngine): HostScreenViewMod
     publicLogs: state.publicLogs,
     latestVotes,
   };
+}
+
+function createHostBoardView(engine: GameEngine): HostBoardView {
+  const state = engine.state;
+  const readyCount = phaseReadyCount(engine);
+  const bossTarget = state.currentBossAction.targetPlayerId
+    ? engine.getPlayer(state.currentBossAction.targetPlayerId)
+    : undefined;
+  const monitored = state.monitoredPlayerId ? engine.getPlayer(state.monitoredPlayerId) : undefined;
+  const latestRound = state.history.at(-1);
+
+  return {
+    mode: state.mode,
+    modeLabel: state.mode === 'party' ? 'Party Mode' : 'Advanced Mode',
+    phase: state.phase,
+    phaseLabel: phaseLabel(state.phase, state.mode),
+    round: Math.min(state.round, state.maxRounds),
+    maxRounds: state.maxRounds,
+    flowKicker: boardFlowKicker(state.phase),
+    flowTitle: boardFlowTitle(engine, readyCount),
+    flowBody: boardFlowBody(engine, readyCount),
+    bossName: state.boss.name,
+    bossHp: state.bossHp,
+    bossMaxHp: state.bossMaxHp,
+    bossActionType: state.currentBossAction.type,
+    bossActionLabel: bossActionLabel(state.currentBossAction.type),
+    bossActionForecast: bossForecastLabel(state.currentBossAction.type),
+    bossTargetName: bossTarget?.name,
+    baseHp: state.baseHp,
+    baseMaxHp: state.baseMaxHp,
+    baseWarning: partyBaseWarning(state.baseHp),
+    inputLabel: phaseInputLabel(state.phase, state.mode),
+    ready: readyCount.ready,
+    readyTotal: readyCount.total,
+    latestRound: latestRound
+      ? {
+        round: latestRound.round,
+        totalDamage: latestRound.totalDamage,
+        bossHealing: latestRound.bossHealing,
+        baseDamage: latestRound.baseDamage,
+        repairs: latestRound.repairs,
+        defenseCount: latestRound.defenseCount,
+        sabotageCount: latestRound.sabotageCount,
+        sabotagePressure: latestRound.sabotagePressure,
+      }
+      : undefined,
+    monitoredName: monitored?.name,
+    monitoredSuspicion: monitored ? suspicionStars(monitored.suspicion) : undefined,
+  };
+}
+
+function boardFlowKicker(phase: GamePhase): string {
+  if (phase === 'finished') return 'ゲーム終了';
+  if (phase === 'action') return '次にすること';
+  if (phase === 'vote') return '入力待ち';
+  if (phase === 'plea') return '入力待ち';
+  if (phase === 'branch') return '作戦選択';
+  return '進行中';
+}
+
+function boardFlowTitle(engine: GameEngine, readyCount: { ready: number; total: number }): string {
+  const state = engine.state;
+  const remaining = Math.max(0, readyCount.total - readyCount.ready);
+  if (state.phase === 'finished') return '結果を確認してください';
+  if (readyCount.total > 0 && remaining === 0) return '作戦同期完了 - 解決中...';
+  if (state.phase === 'action') return `${remaining}基の作戦待ち`;
+  if (state.mode === 'party' && state.phase === 'vote') return `${remaining}基のスパイ予想待ち`;
+  if (state.phase === 'vote') return `${remaining}基の投票待ち`;
+  if (state.phase === 'plea') return `${remaining}基の弁明待ち`;
+  if (state.phase === 'branch') return `${remaining}基の作戦投票待ち`;
+  return '進行待ち';
+}
+
+function boardFlowBody(engine: GameEngine, readyCount: { ready: number; total: number }): string {
+  const state = engine.state;
+  if (state.phase === 'finished') return 'スパイ正体と称号を公開しています。';
+  if (readyCount.total > 0 && Math.max(0, readyCount.total - readyCount.ready) === 0) {
+    return '未接続砲台を自動同期し、戦闘結果を処理します。';
+  }
+  if (state.phase === 'action' && state.mode === 'party') return partyBossHint(state.currentBossAction.type);
+  if (state.phase === 'action') return '各プレイヤーは自分の画面で行動を選びます。';
+  if (state.mode === 'party' && state.phase === 'vote') return '勝敗後のおまけ投票です。怪しい砲台を1人選びます。';
+  return `${phaseInputLabel(state.phase, state.mode)}を各プレイヤー画面で送信します。`;
 }
 
 export function createPlayerScreenViewModel(engine: GameEngine, playerId: string): PlayerScreenViewModel {

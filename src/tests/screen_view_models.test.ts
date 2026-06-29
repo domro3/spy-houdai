@@ -41,6 +41,15 @@ describe('screen privacy guardrails', () => {
     const spyPublicRow = hostView.players.find((player) => player.id === 'p4');
     const serialized = JSON.stringify(hostView);
 
+    expect(hostView.board).toMatchObject({
+      modeLabel: 'Party Mode',
+      phaseLabel: '行動選択',
+      round: 1,
+      ready: 0,
+      readyTotal: 1,
+      bossHp: engine.state.bossHp,
+      baseHp: engine.state.baseHp,
+    });
     expect(spyPublicRow?.role).toBe('非公開');
     expect(serialized).not.toContain('スパイ');
     expect(serialized).not.toContain('ボスを助ける');
@@ -74,6 +83,40 @@ describe('screen privacy guardrails', () => {
       inputStatus: '作戦送信済み',
       inputTone: 'ready',
     });
+    expect(hostView.board.flowTitle).toBe('2基の作戦待ち');
+    expect(hostView.board.flowBody).toBeTruthy();
+  });
+
+  it('projects public battle results for player-side board previews without private actions', () => {
+    const engine = new GameEngine({
+      totalPlayers: 4,
+      humanPlayers: 0,
+      seed: 84,
+      spyId: 'p4',
+      mode: 'party',
+    });
+
+    for (const player of engine.state.players) {
+      engine.submitAction({
+        playerId: player.id,
+        type: player.id === 'p4' ? 'sabotage' : 'normal_attack',
+        targetId: player.id === 'p4' ? 'p1' : undefined,
+      });
+    }
+    engine.resolveActions();
+
+    const hostView = createHostScreenViewModel(engine);
+    const serialized = JSON.stringify(hostView.board);
+
+    expect(hostView.board.latestRound).toMatchObject({
+      round: 1,
+      sabotageCount: 1,
+    });
+    expect(hostView.publicLogs.join('\n')).toContain('ノイズ');
+    expect(serialized).toContain('sabotageCount');
+    expect(serialized).not.toContain('スパイ');
+    expect(serialized).not.toContain('邪魔する');
+    expect(serialized).not.toContain('p4:sabotage');
   });
 
   it('lets PlayerScreen projection show only the selected player private surface', () => {

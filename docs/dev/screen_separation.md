@@ -69,6 +69,11 @@ The `View as Player` selector in the `/` development shell is only for local dev
 
 On `/player/:id`, PlayerScreen is rendered from a player-specific view model received from the local host session. It does not own or resolve `GameEngine` directly.
 
+M4 post-alpha UI pass adds a public Board preview to `/player/:id`.
+This preview is rendered from `HostScreenViewModel.board` and `HostScreenViewModel.players`, not from `GameEngine`.
+It may show the same public combat state as the central display, such as round, phase, boss/base HP, boss warning, public input status, public vote totals, and public logs.
+It must still not show spy identity, spy-only action names, private logs, debug logs, or manual host controls.
+
 ## DebugPanel
 
 DebugPanel is separated from host and player public surfaces.
@@ -118,6 +123,7 @@ Automatic progression:
 Message boundaries:
 
 - Host snapshots contain `HostScreenViewModel`.
+- Player tabs use the host snapshot for the public Board preview and the targeted player update for private controls.
 - Player updates contain `PlayerScreenViewModel` plus a target `playerId`.
 - BroadcastChannel is same-origin and local-only. It is not a security boundary.
 - The code is structured as per-recipient player messages so a future WebSocket transport can enforce privacy server-side.
