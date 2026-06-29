@@ -8,6 +8,7 @@
     "build": "tsc --noEmit && vite build",
     "sim": "tsx scripts/simulate.ts",
     "sim:party": "tsx scripts/simulate_party.ts",
+    "playtest:ai": "tsx scripts/ai_alpha_preflight.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit"

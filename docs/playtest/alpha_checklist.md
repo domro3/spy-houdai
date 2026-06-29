@@ -6,6 +6,8 @@
 ステータス: M4.9 Prototype Asset Integration 後の実プレイ確認用。
 目的: `/board` を戦況スクリーン、`/player/:id` を作戦端末として使い、GMなしで1ゲームを最後まで回せるかを確認する。
 
+補足: 人間プレイテストは未実施。AIで確認できるCPUプレイ・時間見込み・公開ログ・画面分離は `docs/playtest/ai_alpha_preflight.md` に記録する。
+
 ## テスト前セットアップ
 
 | 確認項目 | OK / メモ |

@@ -29,6 +29,11 @@ export interface SimulationGameRecord {
   defenseCount: number;
   repairCount: number;
   suspiciousCoinUsed: boolean;
+  publicLogRoundCount: number;
+  shortPublicLogRoundCount: number;
+  publicLogLineMin: number;
+  publicLogLineMax: number;
+  averagePublicLogLines: number;
 }
 
 export interface SimulationSummary {
@@ -64,6 +69,11 @@ export interface SimulationSummary {
   averageRepairCount: number;
   suspiciousCoinUsageRate: number;
   suspiciousCoinUses: number;
+  publicLogRoundCount: number;
+  shortPublicLogRoundRate: number;
+  averagePublicLogLinesPerRound: number;
+  minPublicLogLinesPerRound: number;
+  maxPublicLogLinesPerRound: number;
   records: SimulationGameRecord[];
 }
 
@@ -100,6 +110,7 @@ export function runSimulation(options: SimulationOptions): SimulationSummary {
   const spyBossHelpCount = sum(records.map((record) => record.spyBossHelpCount));
   const armorRegenAttemptCount = sum(records.map((record) => record.armorRegenAttemptCount));
   const armorRegenSuccessCount = sum(records.map((record) => record.armorRegenSuccessCount));
+  const publicLogRoundCount = sum(records.map((record) => record.publicLogRoundCount));
 
   return {
     games: options.games,
@@ -134,6 +145,17 @@ export function runSimulation(options: SimulationOptions): SimulationSummary {
     averageRepairCount: average(records.map((record) => record.repairCount)),
     suspiciousCoinUsageRate: suspiciousCoinUses / options.games,
     suspiciousCoinUses,
+    publicLogRoundCount,
+    shortPublicLogRoundRate: sum(records.map((record) => record.shortPublicLogRoundCount)) / Math.max(1, publicLogRoundCount),
+    averagePublicLogLinesPerRound: publicLogRoundCount === 0
+      ? 0
+      : sum(records.map((record) => record.averagePublicLogLines * record.publicLogRoundCount)) / publicLogRoundCount,
+    minPublicLogLinesPerRound: publicLogRoundCount > 0
+      ? Math.min(...records.map((record) => record.publicLogLineMin))
+      : 0,
+    maxPublicLogLinesPerRound: publicLogRoundCount > 0
+      ? Math.max(...records.map((record) => record.publicLogLineMax))
+      : 0,
     records,
   };
 }
@@ -166,6 +188,8 @@ export function formatSimulationSummary(summary: SimulationSummary): string {
     `守る平均回数: ${formatNumber(summary.averageDefenseCount)}`,
     `直す平均回数: ${formatNumber(summary.averageRepairCount)}`,
     `怪しいコイン使用率: ${formatRate(summary.suspiciousCoinUsageRate)} (${summary.suspiciousCoinUses}/${summary.games})`,
+    `短い公開ログ率: ${formatRate(summary.shortPublicLogRoundRate)} (${summary.publicLogRoundCount}ラウンド)`,
+    `平均公開ログ行数: ${formatNumber(summary.averagePublicLogLinesPerRound)}行`,
   ].join('\n');
 }
 
@@ -173,6 +197,11 @@ function createGameRecord(index: number, seed: number, state: GameState): Simula
   if (!state.result) {
     throw new Error(`Simulation game ${index} did not finish`);
   }
+  const publicLogLineCounts = state.history.map((round) => round.publicLogs.length);
+  const shortPublicLogRoundCount = state.history.filter((round) => {
+    const maxLines = state.mode === 'party' ? 4 : 5;
+    return round.publicLogs.length >= 3 && round.publicLogs.length <= maxLines;
+  }).length;
 
   return {
     index,
@@ -195,6 +224,11 @@ function createGameRecord(index: number, seed: number, state: GameState): Simula
     defenseCount: sum(state.history.map((round) => round.defenseCount)),
     repairCount: sum(state.history.map((round) => round.repairCount)),
     suspiciousCoinUsed: state.history.some((round) => Boolean(round.suspiciousCoin)),
+    publicLogRoundCount: state.history.length,
+    shortPublicLogRoundCount,
+    publicLogLineMin: publicLogLineCounts.length > 0 ? Math.min(...publicLogLineCounts) : 0,
+    publicLogLineMax: publicLogLineCounts.length > 0 ? Math.max(...publicLogLineCounts) : 0,
+    averagePublicLogLines: publicLogLineCounts.length > 0 ? average(publicLogLineCounts) : 0,
   };
 }
 
