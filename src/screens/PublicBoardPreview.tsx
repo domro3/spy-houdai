@@ -18,9 +18,9 @@ export function PublicBoardPreview({ hostView }: { hostView: HostScreenViewModel
       </div>
 
       <BoardVitals board={hostView.board} />
+      <BoardBossAlert board={hostView.board} />
       <BoardProgress board={hostView.board} />
       <BoardBossMini board={hostView.board} />
-      <BoardBossAlert board={hostView.board} />
       <BoardSituation board={hostView.board} />
       {hostView.board.baseWarning && (
         <div className={`player-board-warning ${hostView.board.baseWarning.level}`}>
