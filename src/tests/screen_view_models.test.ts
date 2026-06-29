@@ -104,4 +104,33 @@ describe('screen privacy guardrails', () => {
       'ボスを助ける',
     ]);
   });
+
+  it('projects finished awards to player terminals after the reveal', () => {
+    const engine = new GameEngine({
+      totalPlayers: 4,
+      humanPlayers: 0,
+      seed: 83,
+      spyId: 'p4',
+      mode: 'party',
+    });
+    engine.state.bossHp = 1;
+
+    for (const player of engine.state.players) {
+      engine.submitAction({ playerId: player.id, type: 'normal_attack' });
+    }
+    engine.resolveActions();
+    engine.submitVote({ voterId: 'p1', targetId: 'p4' });
+    engine.submitVote({ voterId: 'p2', targetId: 'p4' });
+    engine.submitVote({ voterId: 'p3', targetId: 'p1' });
+    engine.submitVote({ voterId: 'p4', targetId: 'p1' });
+    engine.resolveVotes();
+
+    const gunnerView = createPlayerScreenViewModel(engine, 'p1');
+
+    expect(gunnerView.result?.spyName).toBe('黄砲台');
+    expect(gunnerView.result?.finalVoteOutcome).toBe('おまけ投票成功');
+    expect(gunnerView.result?.awards.length).toBeGreaterThanOrEqual(4);
+    expect(gunnerView.result?.awards.some((award) => award.title === '名探偵砲台チーム')).toBe(true);
+    expect(gunnerView.result?.awards.some((award) => award.isMine)).toBe(true);
+  });
 });

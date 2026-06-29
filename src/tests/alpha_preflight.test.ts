@@ -16,6 +16,9 @@ describe('AI alpha preflight', () => {
     expect(report.summary.gunnerWinRate).toBeGreaterThanOrEqual(0.55);
     expect(report.summary.gunnerWinRate).toBeLessThanOrEqual(0.7);
     expect(report.summary.shortPublicLogRoundRate).toBe(1);
+    expect(report.summary.awardGameRate).toBe(1);
+    expect(report.summary.finalBonusAwardGameRate).toBe(1);
+    expect(report.summary.averageAwardCount).toBeGreaterThanOrEqual(4);
     expect(report.summary.spyBehindWins).toBe(0);
     expect(report.summary.suspiciousCoinUses).toBe(0);
   });

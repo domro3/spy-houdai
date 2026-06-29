@@ -5,6 +5,7 @@ import {
   ScanSearch,
   Shield,
   Swords,
+  Trophy,
   Vote,
   Wrench,
   Zap,
@@ -429,12 +430,50 @@ function SyncedInferenceHints({ view }: { view: PlayerScreenViewModel }) {
 }
 
 function SyncedFinishedPanel({ view }: { view: PlayerScreenViewModel }) {
+  const personalAwards = view.result?.awards.filter((award) => award.isMine) ?? [];
+  const sharedAwards = view.result?.awards.filter((award) => !award.isMine).slice(0, 4) ?? [];
   return (
-    <div className="manual-card">
+    <div className="manual-card terminal-result-card">
       <ControlTitle view={view} title="結果確認" />
-      <SelectionStatus label="勝者" value={view.result?.winner ?? '未確定'} />
-      <SelectionStatus label="あなたの投票" value={view.result?.votedTarget ?? '未投票'} />
+      <div className="terminal-result-summary">
+        <SelectionStatus label="勝者" value={view.result?.winner ?? '未確定'} />
+        <SelectionStatus label="あなたの投票" value={view.result?.votedTarget ?? '未投票'} />
+        <SelectionStatus label="スパイ正体" value={view.result?.spyName ?? '未公開'} />
+        {view.result?.finalVoteOutcome && <SelectionStatus label="おまけ投票" value={view.result.finalVoteOutcome} />}
+      </div>
+      {personalAwards.length > 0 && (
+        <div className="terminal-award-block personal">
+          <span>あなたの称号</span>
+          {personalAwards.map((award) => (
+            <TerminalAward key={`${award.title}-${award.owner}`} award={award} />
+          ))}
+        </div>
+      )}
+      {sharedAwards.length > 0 && (
+        <div className="terminal-award-block">
+          <span>全体ハイライト</span>
+          {sharedAwards.map((award) => (
+            <TerminalAward key={`${award.title}-${award.owner}`} award={award} />
+          ))}
+        </div>
+      )}
       <PrivateLogList logs={view.privateLogs.slice(-4)} />
+    </div>
+  );
+}
+
+function TerminalAward({
+  award,
+}: {
+  award: NonNullable<PlayerScreenViewModel['result']>['awards'][number];
+}) {
+  return (
+    <div className="terminal-award-row">
+      <Trophy size={16} />
+      <div>
+        <strong>{award.title}</strong>
+        <small>{award.owner} / {award.reason}</small>
+      </div>
     </div>
   );
 }

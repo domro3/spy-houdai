@@ -7,6 +7,7 @@ import {
   ScanSearch,
   Shield,
   Swords,
+  Trophy,
   Vote,
   Wrench,
   Zap,
@@ -430,15 +431,53 @@ function InferenceHintsPanel({ engine }: { engine: GameEngine }) {
 function PlayerFinishedPanel({ player, engine }: { player: Player; engine: GameEngine }) {
   const result = engine.state.result;
   if (!result) return null;
+  const view = createPlayerScreenViewModel(engine, player.id);
   const votedTarget = engine.state.votes[player.id]?.targetId
     ? engine.getPlayer(engine.state.votes[player.id].targetId).name
     : '未投票';
+  const personalAwards = view.result?.awards.filter((award) => award.isMine) ?? [];
+  const sharedAwards = view.result?.awards.filter((award) => !award.isMine).slice(0, 4) ?? [];
   return (
-    <div className="manual-card">
+    <div className="manual-card terminal-result-card">
       <ControlHeader player={player} title="結果確認" engine={engine} />
-      <SelectionStatus label="勝者" value={result.winner === 'gunners' ? '砲台チーム' : 'スパイ'} />
-      <SelectionStatus label="あなたの投票" value={votedTarget} />
+      <div className="terminal-result-summary">
+        <SelectionStatus label="勝者" value={result.winner === 'gunners' ? '砲台チーム' : 'スパイ'} />
+        <SelectionStatus label="あなたの投票" value={votedTarget} />
+        <SelectionStatus label="スパイ正体" value={engine.getPlayer(result.spyId).name} />
+      </div>
+      {personalAwards.length > 0 && (
+        <div className="terminal-award-block personal">
+          <span>あなたの称号</span>
+          {personalAwards.map((award) => (
+            <TerminalAward key={`${award.title}-${award.owner}`} award={award} />
+          ))}
+        </div>
+      )}
+      {sharedAwards.length > 0 && (
+        <div className="terminal-award-block">
+          <span>全体ハイライト</span>
+          {sharedAwards.map((award) => (
+            <TerminalAward key={`${award.title}-${award.owner}`} award={award} />
+          ))}
+        </div>
+      )}
       <PrivateLogPeek player={player} engine={engine} />
+    </div>
+  );
+}
+
+function TerminalAward({
+  award,
+}: {
+  award: NonNullable<ReturnType<typeof createPlayerScreenViewModel>['result']>['awards'][number];
+}) {
+  return (
+    <div className="terminal-award-row">
+      <Trophy size={16} />
+      <div>
+        <strong>{award.title}</strong>
+        <small>{award.owner} / {award.reason}</small>
+      </div>
     </div>
   );
 }

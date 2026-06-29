@@ -34,6 +34,9 @@ export interface SimulationGameRecord {
   publicLogLineMin: number;
   publicLogLineMax: number;
   averagePublicLogLines: number;
+  awardCount: number;
+  hasAwards: boolean;
+  hasFinalBonusAward: boolean;
 }
 
 export interface SimulationSummary {
@@ -74,6 +77,9 @@ export interface SimulationSummary {
   averagePublicLogLinesPerRound: number;
   minPublicLogLinesPerRound: number;
   maxPublicLogLinesPerRound: number;
+  averageAwardCount: number;
+  awardGameRate: number;
+  finalBonusAwardGameRate: number;
   records: SimulationGameRecord[];
 }
 
@@ -156,6 +162,9 @@ export function runSimulation(options: SimulationOptions): SimulationSummary {
     maxPublicLogLinesPerRound: publicLogRoundCount > 0
       ? Math.max(...records.map((record) => record.publicLogLineMax))
       : 0,
+    averageAwardCount: average(records.map((record) => record.awardCount)),
+    awardGameRate: records.filter((record) => record.hasAwards).length / options.games,
+    finalBonusAwardGameRate: records.filter((record) => record.hasFinalBonusAward).length / options.games,
     records,
   };
 }
@@ -190,6 +199,7 @@ export function formatSimulationSummary(summary: SimulationSummary): string {
     `怪しいコイン使用率: ${formatRate(summary.suspiciousCoinUsageRate)} (${summary.suspiciousCoinUses}/${summary.games})`,
     `短い公開ログ率: ${formatRate(summary.shortPublicLogRoundRate)} (${summary.publicLogRoundCount}ラウンド)`,
     `平均公開ログ行数: ${formatNumber(summary.averagePublicLogLinesPerRound)}行`,
+    `称号表示ゲーム率: ${formatRate(summary.awardGameRate)} / 平均${formatNumber(summary.averageAwardCount)}個`,
   ].join('\n');
 }
 
@@ -202,6 +212,7 @@ function createGameRecord(index: number, seed: number, state: GameState): Simula
     const maxLines = state.mode === 'party' ? 4 : 5;
     return round.publicLogs.length >= 3 && round.publicLogs.length <= maxLines;
   }).length;
+  const awardTitles = state.result.awards.map((award) => award.title);
 
   return {
     index,
@@ -229,6 +240,9 @@ function createGameRecord(index: number, seed: number, state: GameState): Simula
     publicLogLineMin: publicLogLineCounts.length > 0 ? Math.min(...publicLogLineCounts) : 0,
     publicLogLineMax: publicLogLineCounts.length > 0 ? Math.max(...publicLogLineCounts) : 0,
     averagePublicLogLines: publicLogLineCounts.length > 0 ? average(publicLogLineCounts) : 0,
+    awardCount: state.result.awards.length,
+    hasAwards: state.result.awards.length > 0,
+    hasFinalBonusAward: awardTitles.includes('名探偵砲台チーム') || awardTitles.includes('潜伏成功'),
   };
 }
 

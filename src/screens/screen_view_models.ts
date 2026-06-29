@@ -57,6 +57,14 @@ export interface PlayerScreenViewModel {
   result?: {
     winner: string;
     votedTarget: string;
+    spyName: string;
+    finalVoteOutcome?: string;
+    awards: Array<{
+      title: string;
+      owner: string;
+      reason: string;
+      isMine: boolean;
+    }>;
   };
 }
 
@@ -149,6 +157,18 @@ export function createPlayerScreenViewModel(engine: GameEngine, playerId: string
       ? {
         winner: state.result.winner === 'gunners' ? '砲台チーム' : 'スパイ',
         votedTarget: selectedVoteTargetId ? engine.getPlayer(selectedVoteTargetId).name : '未投票',
+        spyName: engine.getPlayer(state.result.spyId).name,
+        finalVoteOutcome: state.mode === 'party'
+          ? state.result.finalVoteTargetId === state.result.spyId
+            ? 'おまけ投票成功'
+            : 'おまけ投票失敗'
+          : undefined,
+        awards: state.result.awards.map((award) => ({
+          title: award.title,
+          owner: award.playerId ? engine.getPlayer(award.playerId).name : 'チーム',
+          reason: award.reason,
+          isMine: award.playerId === player.id,
+        })),
       }
       : undefined,
   };

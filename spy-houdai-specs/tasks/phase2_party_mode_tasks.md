@@ -50,6 +50,7 @@ npm run playtest:ai -- --games 100
 - Party Modeの砲台勝率が55から70%の目安内に入る
 - publicLogが全ラウンド3から4行に収まる
 - 守る・直す・妨害がシミュレーション内で十分に出る
+- 結果発表で称号とおまけ投票称号が出る
 - `/board` に秘密情報が出ず、スパイ専用操作はスパイ端末だけに出る
 
 証跡: `docs/playtest/ai_alpha_preflight.md`

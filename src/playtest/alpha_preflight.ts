@@ -126,6 +126,15 @@ export function runAlphaPreflight(options: AlphaPreflightOptions = {}): AlphaPre
       passed: summary.finalVoteHitSpyCount > 0 && summary.finalVoteHitSpyCount < summary.games,
     },
     {
+      id: 'result_awards',
+      label: '結果発表・称号の発生',
+      target: '全ゲームで称号が出て、おまけ投票称号も出る',
+      observed: `称号${formatRate(summary.awardGameRate)} / 平均${formatNumber(summary.averageAwardCount)}個 / おまけ${formatRate(summary.finalBonusAwardGameRate)}`,
+      passed: summary.awardGameRate === 1
+        && summary.averageAwardCount >= 4
+        && summary.finalBonusAwardGameRate === 1,
+    },
+    {
       id: 'privacy_projection',
       label: '画面分離・秘密情報ガード',
       target: 'Boardに秘密情報なし、スパイ操作はスパイ端末だけ',
@@ -238,6 +247,7 @@ export function formatAlphaPreflightMarkdown(
     `- 拠点耐久40以下到達率: ${formatRate(report.summary.baseDanger40Rate)}`,
     `- 拠点耐久0敗北率: ${formatRate(report.summary.baseDestroyedRate)}`,
     `- 短い公開ログ率: ${formatRate(report.summary.shortPublicLogRoundRate)}`,
+    `- 称号表示ゲーム率: ${formatRate(report.summary.awardGameRate)}`,
     '',
     '## ゲート',
     '',

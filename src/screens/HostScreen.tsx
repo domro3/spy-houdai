@@ -1,3 +1,4 @@
+import { Trophy } from 'lucide-react';
 import { PrototypeAssetImage } from '../assets/PrototypeAssetImage';
 import { prototypeAssets, turretPrototypeAsset } from '../assets/prototype_assets';
 import { bossActionLabel, bossForecastLabel, GameEngine } from '../core/game_engine';
@@ -566,28 +567,99 @@ function ResultView({ engine }: { engine: GameEngine }) {
   const result = engine.state.result;
   if (!result) return null;
   const spy = engine.getPlayer(result.spyId);
+  const finalVoteTarget = result.finalVoteTargetId ? engine.getPlayer(result.finalVoteTargetId) : undefined;
+  const winnerLabel = result.winner === 'gunners' ? '砲台チーム勝利' : 'スパイ勝利';
+  const resultTone = result.winner === 'gunners' ? 'gunners' : 'spy';
+  const headline = result.winner === 'gunners'
+    ? 'ボス撃破、拠点防衛成功'
+    : result.baseDestroyed
+      ? '拠点陥落、作戦失敗'
+      : 'ボス撃破ならず、作戦失敗';
+  const spotlightAwards = result.awards.slice(0, 3);
+  const remainingAwards = result.awards.slice(3);
+
   return (
-    <section className="result-view host-public-panel">
-      <h3>{result.winner === 'gunners' ? '砲台チーム勝利' : 'スパイ勝利'}</h3>
-      <p>{result.bossDefeated ? 'ボス撃破成功' : 'ボス撃破失敗'} / 拠点耐久 {engine.state.baseHp}</p>
-      <p>スパイ正体: {spy.name}</p>
-      {result.spyBehindWin && <p>スパイ裏勝利: 最終投票でスパイを当てられませんでした。</p>}
-      {engine.state.mode === 'party' && result.finalVoteTargetId && (
-        <p>
-          おまけ投票:
-          {' '}
-          {result.finalVoteTargetId === result.spyId ? '名探偵砲台チームボーナス' : 'スパイ潜伏成功'}
-        </p>
-      )}
-      <div className="award-list">
-        {result.awards.map((award) => (
-          <div key={`${award.title}-${award.playerId ?? 'team'}`}>
-            <strong>{award.title}</strong>
-            <span>{award.playerId ? engine.getPlayer(award.playerId).name : 'チーム'} - {award.reason}</span>
+    <section className={`result-view result-${resultTone}`} aria-label="結果発表">
+      <div className="result-hero">
+        <div>
+          <span className="section-kicker">結果発表</span>
+          <h2>{winnerLabel}</h2>
+          <p>{headline}</p>
+        </div>
+        <div className="result-scoreboard">
+          <div>
+            <span>ボスHP</span>
+            <strong>{engine.state.bossHp}/{engine.state.bossMaxHp}</strong>
           </div>
-        ))}
+          <div>
+            <span>拠点耐久</span>
+            <strong>{engine.state.baseHp}/{engine.state.baseMaxHp}</strong>
+          </div>
+          <div>
+            <span>スパイ正体</span>
+            <strong>{spy.name}</strong>
+          </div>
+        </div>
+      </div>
+
+      <div className="result-callouts">
+        {engine.state.mode === 'party' && finalVoteTarget && (
+          <div className={finalVoteTarget.id === result.spyId ? 'result-callout success' : 'result-callout spy'}>
+            <span>おまけ投票</span>
+            <strong>{finalVoteTarget.id === result.spyId ? '名探偵砲台チームボーナス' : 'スパイ潜伏成功'}</strong>
+            <em>{finalVoteTarget.name}に票が集まりました。</em>
+          </div>
+        )}
+        {result.spyBehindWin && (
+          <div className="result-callout spy">
+            <span>裏勝利</span>
+            <strong>スパイ潜伏成功</strong>
+            <em>最終投票でスパイを当てられませんでした。</em>
+          </div>
+        )}
+      </div>
+
+      <div className="award-showcase" aria-label="称号発表">
+        <div className="board-heading">
+          <h3>称号発表</h3>
+          <span>今回のハイライト</span>
+        </div>
+        <div className="award-spotlight-list">
+          {spotlightAwards.map((award) => (
+            <AwardRow key={`${award.title}-${award.playerId ?? 'team'}`} engine={engine} award={award} spotlight />
+          ))}
+        </div>
+        {remainingAwards.length > 0 && (
+          <div className="award-list">
+            {remainingAwards.map((award) => (
+              <AwardRow key={`${award.title}-${award.playerId ?? 'team'}`} engine={engine} award={award} />
+            ))}
+          </div>
+        )}
       </div>
     </section>
+  );
+}
+
+function AwardRow({
+  engine,
+  award,
+  spotlight = false,
+}: {
+  engine: GameEngine;
+  award: NonNullable<GameEngine['state']['result']>['awards'][number];
+  spotlight?: boolean;
+}) {
+  const owner = award.playerId ? engine.getPlayer(award.playerId).name : 'チーム';
+  return (
+    <div className={spotlight ? 'award-row spotlight' : 'award-row'}>
+      <span className="award-icon" aria-hidden="true"><Trophy size={18} /></span>
+      <div>
+        <strong>{award.title}</strong>
+        <span>{owner}</span>
+      </div>
+      <em>{award.reason}</em>
+    </div>
   );
 }
 
