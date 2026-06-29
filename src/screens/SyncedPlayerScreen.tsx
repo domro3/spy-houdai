@@ -58,21 +58,27 @@ export function SyncedPlayerScreen({
       </div>
 
       <SyncClientStatus client={client} playerId={playerId} />
-      {client.hostView && <PublicBoardPreview hostView={client.hostView} />}
+      <div className={client.hostView ? 'terminal-dashboard-grid' : 'terminal-dashboard-grid solo'}>
+        {client.hostView && <PublicBoardPreview hostView={client.hostView} />}
 
-      {!view ? (
-        <WaitingForHost playerId={playerId} client={client} />
-      ) : (
-        <>
-          <PlayerStepBanner view={view} />
-          {view.phase === 'finished' ? (
-            <SyncedFinishedPanel view={view} />
-          ) : (
-            <SyncedControls view={view} client={client} />
-          )}
-          <SyncedIdentityPanel view={view} />
-        </>
-      )}
+        {!view ? (
+          <WaitingForHost playerId={playerId} client={client} />
+        ) : (
+          <div className="terminal-main-grid">
+            <div className="terminal-command-column">
+              {view.phase === 'finished' ? (
+                <SyncedFinishedPanel view={view} />
+              ) : (
+                <>
+                  <SyncedControls view={view} client={client} />
+                  <PlayerStepBanner view={view} />
+                </>
+              )}
+            </div>
+            <SyncedIdentityPanel view={view} />
+          </div>
+        )}
+      </div>
     </section>
   );
 }

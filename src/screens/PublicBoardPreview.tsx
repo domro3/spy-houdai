@@ -6,13 +6,18 @@ export function PublicBoardPreview({ hostView }: { hostView: HostScreenViewModel
     <section className="player-board-preview" aria-label="中央画面">
       <div className="player-board-header">
         <div>
-          <span className="section-kicker">中央画面</span>
-          <h3>{hostView.board.flowTitle}</h3>
+          <span className="section-kicker">BATTLE HUD</span>
+          <h3>{hostView.board.bossName}</h3>
         </div>
-        <span className={`player-board-phase phase-${hostView.board.phase}`}>{hostView.board.phaseLabel}</span>
+        <div className="player-board-badges">
+          <span className="round-badge">ROUND {hostView.board.round}/{hostView.board.maxRounds}</span>
+          <span className={`player-board-phase phase-${hostView.board.phase}`}>{hostView.board.phaseLabel}</span>
+        </div>
       </div>
 
+      <BoardBossAlert board={hostView.board} />
       <BoardVitals board={hostView.board} />
+      <BoardProgress board={hostView.board} />
       <BoardSituation board={hostView.board} />
       {hostView.board.baseWarning && (
         <div className={`player-board-warning ${hostView.board.baseWarning.level}`}>
@@ -25,6 +30,22 @@ export function PublicBoardPreview({ hostView }: { hostView: HostScreenViewModel
       <BoardVoteSummary votes={hostView.latestVotes} />
       <BoardLogPeek logs={hostView.publicLogs.slice(-3)} />
     </section>
+  );
+}
+
+function BoardBossAlert({ board }: { board: HostBoardView }) {
+  const bossDetail = board.bossTargetName
+    ? `${board.bossTargetName}へロックオン`
+    : board.bossActionForecast;
+  const tone = board.bossActionType === 'big_charge' ? 'warning' : 'active';
+
+  return (
+    <div className={`player-board-alert ${tone}`}>
+      <span>ボス予告</span>
+      <strong>{board.bossActionLabel}</strong>
+      <em>{bossDetail}</em>
+      <b>{board.flowBody}</b>
+    </div>
   );
 }
 
@@ -61,10 +82,21 @@ function BoardGauge({
   );
 }
 
+function BoardProgress({ board }: { board: HostBoardView }) {
+  return (
+    <div className="player-board-progress">
+      <div>
+        <span>{board.inputLabel}</span>
+        <strong>{board.ready} / {board.readyTotal}</strong>
+      </div>
+      <div className="terminal-progress-track" aria-hidden="true">
+        <span style={{ width: percent(board.ready, Math.max(1, board.readyTotal)) }} />
+      </div>
+    </div>
+  );
+}
+
 function BoardSituation({ board }: { board: HostBoardView }) {
-  const bossDetail = board.bossTargetName
-    ? `${board.bossTargetName}へロックオン`
-    : board.bossActionForecast;
   const publicFocus = board.mode === 'party'
     ? board.flowBody
     : board.monitoredName
@@ -79,13 +111,8 @@ function BoardSituation({ board }: { board: HostBoardView }) {
         <em>{board.modeLabel}</em>
       </div>
       <div>
-        <span>ボス予告</span>
-        <strong>{board.bossActionLabel}</strong>
-        <em>{bossDetail}</em>
-      </div>
-      <div>
-        <span>{board.inputLabel}</span>
-        <strong>{board.ready} / {board.readyTotal}</strong>
+        <span>判断ヒント</span>
+        <strong>{board.flowKicker}</strong>
         <em>{publicFocus}</em>
       </div>
     </div>
@@ -167,8 +194,35 @@ function BoardLogPeek({ logs }: { logs: string[] }) {
     <div className="player-board-log">
       <span>公開ログ</span>
       <ol>
-        {logs.map((log, index) => <li key={`${index}-${log}`}>{log}</li>)}
+        {logs.map((log, index) => {
+          const event = boardLogEvent(log);
+          return (
+            <li key={`${index}-${log}`} className={`terminal-log-line ${event.tone}`}>
+              <b>{event.label}</b>
+              <span>{log}</span>
+            </li>
+          );
+        })}
       </ol>
     </div>
   );
+}
+
+function boardLogEvent(log: string): { label: string; tone: string } {
+  if (log.includes('大技') || log.includes('危険') || log.includes('陥落') || log.includes('被害')) {
+    return { label: 'ボス予告', tone: 'warning' };
+  }
+  if (log.includes('ノイズ') || log.includes('異常') || log.includes('妨害')) {
+    return { label: '妨害', tone: 'sabotage' };
+  }
+  if (log.includes('修理') || log.includes('回復') || log.includes('耐久は残り')) {
+    return { label: '修理', tone: 'repair' };
+  }
+  if (log.includes('防御') || log.includes('守')) {
+    return { label: 'ガード', tone: 'guard' };
+  }
+  if (log.includes('入力') || log.includes('作戦')) {
+    return { label: '入力', tone: 'input' };
+  }
+  return { label: '情報', tone: 'neutral' };
 }

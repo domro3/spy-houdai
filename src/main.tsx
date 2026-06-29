@@ -125,7 +125,7 @@ function App() {
   }
 
   return (
-    <main className="app-shell">
+    <main className={`app-shell view-${screenView}`}>
       <section className="command-band">
         <div>
           <p className="eyebrow">全員砲台、1人だけスパイ。</p>
