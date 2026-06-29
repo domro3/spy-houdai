@@ -3,10 +3,10 @@
 このチェックリストは、Phase 2 Party Mode Alphaの人間プレイテスト用メモである。
 現時点では、面白さ・分かりやすさ・操作の迷いを確認するためのドラフトとして使う。
 
-ステータス: M4.9 Prototype Asset Integration 後の実プレイ確認用。
+ステータス: Post-M4人間プレイテスト用。M4自体はAI Alpha Readyとして完了済み。
 目的: `/board` を戦況スクリーン、`/player/:id` を作戦端末として使い、GMなしで1ゲームを最後まで回せるかを確認する。
 
-補足: 人間プレイテストは未実施。AIで確認できるCPUプレイ・時間見込み・公開ログ・画面分離は `docs/playtest/ai_alpha_preflight.md` に記録する。
+補足: 人間プレイテストは未実施。AIで確認できるCPUプレイ・時間見込み・公開ログ・画面分離は `docs/playtest/ai_alpha_preflight.md` に記録し、M4完了判断は `docs/playtest/m4_completion_report.md` に記録する。
 
 ## テスト前セットアップ
 

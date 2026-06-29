@@ -1,5 +1,9 @@
 # Phase 2: Party Mode 追加タスク
 
+ステータス: M4 Complete / AI Alpha Ready
+
+M4はAIで確認できる範囲を完了し、人間プレイテストはPost-M4確認事項へ移管した。
+
 ## 1. 目的
 
 Phase 1完了後、標準入口としてParty Modeを追加する。
@@ -19,7 +23,7 @@ Phase 1完了後、標準入口としてParty Modeを追加する。
 - [x] Party Mode用CPU自動進行を追加する
 - [x] Party Mode用シミュレーションコマンドを追加する
 - [x] AI Alpha PreflightでCPUプレイ・時間見込み・公開ログ・画面分離を自動確認する
-- [ ] 人間プレイテストで1ゲーム5から8分の手触りを確認する
+- [x] M4をAI Alpha Readyとしてクローズし、人間プレイテストをPost-M4確認へ移管する
 
 ## 3. 確認コマンド
 
@@ -54,3 +58,14 @@ npm run playtest:ai -- --games 100
 - `/board` に秘密情報が出ず、スパイ専用操作はスパイ端末だけに出る
 
 証跡: `docs/playtest/ai_alpha_preflight.md`
+
+## 6. Post-M4確認事項
+
+以下はM4を完了扱いにしたうえで、人間が対応できるタイミングで確認する。
+
+- [ ] 人間プレイテストで1ゲーム5から8分の手触りを確認する
+- [ ] 説明なしでBoardの戦況が読めるか確認する
+- [ ] Player端末だけで次に押す操作が分かるか確認する
+- [ ] 結果発表と称号が盛り上がりにつながるか確認する
+
+M4完了レポート: `docs/playtest/m4_completion_report.md`
