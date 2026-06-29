@@ -671,7 +671,7 @@ function LogPanel({ title, logs }: { title: string; logs: string[] }) {
         <p className="muted">まだログはありません。</p>
       ) : (
         <ol>
-          {logs.map((log, index) => <li key={`${log}-${index}`}>{log}</li>)}
+          {logs.map((log, index) => <PublicLogLine key={`${log}-${index}`} log={log} />)}
         </ol>
       )}
     </div>
@@ -706,8 +706,40 @@ function RoundLogCard({ round, logs, latest = false }: { round: number; logs: st
         {latest && <span>最新</span>}
       </div>
       <ol>
-        {logs.map((log, index) => <li key={`${round}-${index}`}>{log}</li>)}
+        {logs.map((log, index) => <PublicLogLine key={`${round}-${index}`} log={log} />)}
       </ol>
     </article>
   );
+}
+
+function PublicLogLine({ log }: { log: string }) {
+  const event = publicLogEvent(log);
+  return (
+    <li className={`public-log-line ${event.tone}`}>
+      <span className="log-event-badge" aria-hidden="true">{event.label}</span>
+      <span>{log}</span>
+    </li>
+  );
+}
+
+function publicLogEvent(log: string): { label: string; tone: string } {
+  if (log.includes('大技') || log.includes('危険') || log.includes('陥落') || log.includes('被害')) {
+    return { label: '警告', tone: 'warning' };
+  }
+  if (log.includes('ノイズ') || log.includes('異常') || log.includes('妨害')) {
+    return { label: '妨害', tone: 'sabotage' };
+  }
+  if (log.includes('ボス') && log.includes('回復')) {
+    return { label: '妨害', tone: 'sabotage' };
+  }
+  if (log.includes('修理') || log.includes('回復') || log.includes('耐久は残り')) {
+    return { label: '修理', tone: 'repair' };
+  }
+  if (log.includes('防御') || log.includes('守')) {
+    return { label: '防御', tone: 'guard' };
+  }
+  if (log.includes('ダメージ') || log.includes('攻撃') || log.includes('撃破')) {
+    return { label: '攻撃', tone: 'attack' };
+  }
+  return { label: '情報', tone: 'neutral' };
 }

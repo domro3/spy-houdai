@@ -131,7 +131,7 @@ function PlayerIdentityPanel({
   const playerView = createPlayerScreenViewModel(engine, player.id);
 
   return (
-    <section className="player-identity-panel">
+    <section className={`player-identity-panel role-${player.role === 'spy' ? 'spy' : 'gunner'}`}>
       <div className="player-topline">
         <div>
           <span className="section-kicker">{player.id}</span>
@@ -198,8 +198,13 @@ function PlayerControl({ player, engine, onChange }: { player: Player; engine: G
       <button
         type="button"
         key={type}
-        className={`${selectedAction?.type === type ? 'choice selected' : 'choice'}${quiet ? ' quiet' : ''}`}
+        className={[
+          selectedAction?.type === type ? 'choice selected' : 'choice',
+          `action-${type}`,
+          quiet ? 'quiet' : '',
+        ].filter(Boolean).join(' ')}
         title={actionHelp(type, state.mode)}
+        aria-pressed={selectedAction?.type === type}
         onClick={() => {
           engine.submitAction({
             playerId: player.id,
@@ -210,7 +215,10 @@ function PlayerControl({ player, engine, onChange }: { player: Player; engine: G
         }}
       >
         {ACTION_ICONS[type]}
-        <span>{actionLabel(type, state.mode)}</span>
+        <span>
+          <strong>{actionLabel(type, state.mode)}</strong>
+          <small>{actionHelp(type, state.mode)}</small>
+        </span>
       </button>
     );
 
