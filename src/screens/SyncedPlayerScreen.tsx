@@ -202,7 +202,7 @@ function PlayerStepBanner({ view }: { view: PlayerScreenViewModel }) {
       <div className="player-step-visual" aria-label={`${view.name}の砲台ユニット`}>
         <CoreGuardTurret state={turretState} playerId={view.id} compact />
       </div>
-      <em>{submitted ? '他プレイヤーの入力待ち。揃うと自動で戦況が進みます。' : playerStepBody(view)}</em>
+      <em>{submitted ? '他プレイヤーやCPUの入力待ち。揃うと自動で戦況が進みます。' : playerStepBody(view)}</em>
     </section>
   );
 }
@@ -244,7 +244,7 @@ function playerSubmittedTitle(view: PlayerScreenViewModel): string {
 function playerStepBody(view: PlayerScreenViewModel): string {
   if (view.phase === 'action' && view.mode === 'party') return '迷ったら「撃つ」。危ない予告なら「守る」、拠点が減ったら「直す」。';
   if (view.phase === 'vote' && view.mode === 'party') return '勝敗後のおまけ投票です。怪しい砲台を選んでください。';
-  return '選ぶとすぐBoardへ送信されます。';
+  return '選ぶとすぐ戦況へ送信されます。';
 }
 
 function SyncedControls({
@@ -280,7 +280,7 @@ function SubmittedWaitPanel({ view }: { view: PlayerScreenViewModel }) {
     <section className="submitted-wait-panel">
       <span>{playerSubmittedTitle(view)}</span>
       <strong>同期待機中</strong>
-      <em>端末を閉じずに戦況スクリーンの解決を待ってください。</em>
+      <em>端末を閉じずに同期処理を待ってください。</em>
     </section>
   );
 }

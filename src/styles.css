@@ -2278,6 +2278,210 @@ body:has(.app-shell.view-board) {
   background-size: auto, auto, auto, 40px 40px, 40px 40px, auto;
 }
 
+body:has(.app-shell.view-alpha) {
+  background:
+    radial-gradient(circle at 50% -8%, rgb(34 199 232 / 22%), transparent 30rem),
+    radial-gradient(circle at 12% 18%, rgb(139 63 242 / 18%), transparent 26rem),
+    radial-gradient(circle at 86% 24%, rgb(232 74 58 / 16%), transparent 28rem),
+    linear-gradient(90deg, rgb(255 255 255 / 4%) 1px, transparent 1px),
+    linear-gradient(0deg, rgb(255 255 255 / 3%) 1px, transparent 1px),
+    linear-gradient(135deg, #101720 0%, #172431 52%, #17121f 100%);
+  background-size: auto, auto, auto, 36px 36px, 36px 36px, auto;
+}
+
+.app-shell.view-alpha {
+  width: min(720px, 100%);
+  padding: 12px;
+}
+
+.view-alpha .command-band {
+  margin-bottom: 10px;
+  border-color: rgb(34 199 232 / 20%);
+  background:
+    linear-gradient(135deg, rgb(9 18 28 / 94%), rgb(13 16 25 / 94%)),
+    #101720;
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 7%),
+    0 16px 36px rgb(0 0 0 / 28%);
+}
+
+.view-alpha h1 {
+  color: #f8fafc;
+  font-size: clamp(2rem, 10vw, 3rem);
+}
+
+.view-alpha .eyebrow {
+  display: inline-flex;
+  margin-bottom: 6px;
+  border: 1px solid rgb(232 74 58 / 42%);
+  border-radius: 7px;
+  background: rgb(232 74 58 / 16%);
+  color: #ffddd7;
+  padding: 4px 8px;
+  font-size: 0.8rem;
+}
+
+.view-alpha .readonly-route-note {
+  justify-items: end;
+  border-radius: 8px;
+  background: rgb(255 255 255 / 7%);
+  padding: 9px 11px;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 8%);
+}
+
+.view-alpha .readonly-route-note strong {
+  color: #9defff;
+}
+
+.view-alpha .readonly-route-note span {
+  color: rgb(248 250 252 / 72%);
+}
+
+.screen-shell.alpha {
+  grid-template-columns: 1fr;
+}
+
+.alpha-entry,
+.alpha-play-header {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgb(34 199 232 / 22%);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgb(13 25 38 / 92%), rgb(14 18 28 / 96%)),
+    #101720;
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 7%),
+    0 20px 48px rgb(0 0 0 / 30%);
+}
+
+.alpha-entry > :not(.game-backdrop) {
+  position: relative;
+  z-index: 1;
+}
+
+.alpha-entry {
+  display: grid;
+  gap: 16px;
+  min-height: calc(100svh - 132px);
+  padding: 18px;
+}
+
+.alpha-entry-copy {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.alpha-entry-copy .section-kicker {
+  color: #9defff;
+}
+
+.alpha-entry-copy h2 {
+  margin-bottom: 0;
+  color: #f8fafc;
+  font-size: clamp(2rem, 12vw, 4rem);
+  line-height: 0.98;
+}
+
+.alpha-entry-copy p {
+  max-width: 32rem;
+  margin-bottom: 0;
+  color: rgb(248 250 252 / 78%);
+  font-weight: 800;
+  line-height: 1.55;
+}
+
+.alpha-cta-row,
+.alpha-route-actions,
+.alpha-play-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+.alpha-primary-action {
+  min-height: 58px;
+  padding: 0 18px;
+  font-size: 1rem;
+}
+
+.alpha-primary-action .game-icon {
+  color: #ffffff;
+}
+
+.alpha-visual {
+  display: grid;
+  grid-template-columns: minmax(90px, 1fr) minmax(80px, 0.8fr) minmax(90px, 1fr);
+  gap: 8px;
+  align-items: center;
+  min-height: 150px;
+  border-radius: 8px;
+  background:
+    radial-gradient(circle at 50% 50%, rgb(34 199 232 / 16%), transparent 65%),
+    rgb(255 255 255 / 6%);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 8%);
+  padding: 12px;
+}
+
+.alpha-visual .boss-unlink-visual,
+.alpha-visual .game-core-visual,
+.alpha-visual .coreguard-turret-visual {
+  width: min(100%, 132px);
+  justify-self: center;
+}
+
+.alpha-route-panel {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  border-radius: 8px;
+  background: rgb(255 255 255 / 7%);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 8%);
+  padding: 12px;
+}
+
+.alpha-route-panel > div:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.alpha-route-panel strong,
+.alpha-play-header strong {
+  color: #f8fafc;
+}
+
+.alpha-route-panel span,
+.alpha-play-header em {
+  color: rgb(248 250 252 / 70%);
+  font-size: 0.84rem;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.alpha-play-stack {
+  display: grid;
+  gap: 10px;
+}
+
+.alpha-play-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+}
+
+.alpha-play-header > div:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.alpha-play-header .section-kicker {
+  color: #9defff;
+}
+
 .app-shell.view-board {
   width: min(1240px, 100%);
 }
@@ -4238,6 +4442,52 @@ dd {
 
   .local-route-links {
     justify-content: flex-start;
+  }
+
+  .app-shell.view-alpha {
+    padding: 10px;
+  }
+
+  .view-alpha .command-band {
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .view-alpha .readonly-route-note {
+    justify-items: start;
+  }
+
+  .alpha-entry {
+    min-height: calc(100svh - 122px);
+    padding: 14px;
+  }
+
+  .alpha-entry-copy h2 {
+    font-size: clamp(2rem, 13vw, 3.1rem);
+  }
+
+  .alpha-cta-row .icon-button {
+    flex: 1 1 100%;
+  }
+
+  .alpha-visual {
+    min-height: 132px;
+    padding: 10px;
+  }
+
+  .alpha-route-panel,
+  .alpha-play-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .view-alpha.view-player .alpha-play-header {
+    display: none;
+  }
+
+  .alpha-route-actions .tiny-button,
+  .alpha-play-actions .tiny-button {
+    flex: 1 1 88px;
   }
 
   .board-flow-banner,

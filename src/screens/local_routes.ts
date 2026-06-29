@@ -1,4 +1,4 @@
-export type LocalScreenView = 'split' | 'board' | 'player' | 'debug';
+export type LocalScreenView = 'alpha' | 'split' | 'board' | 'player' | 'debug';
 
 export interface LocalRouteState {
   view: LocalScreenView;
@@ -10,7 +10,8 @@ export interface LocalRouteState {
 
 export function parseLocalRoute(pathname: string): LocalRouteState {
   const path = normalizeLocalPath(pathname);
-  if (path === '/') return { view: 'split', path };
+  if (path === '/') return { view: 'alpha', path };
+  if (path === '/dev') return { view: 'split', path };
   if (path === '/board' || path === '/host') return { view: 'board', path };
   if (path === '/debug') return { view: 'debug', path };
 
@@ -23,14 +24,15 @@ export function parseLocalRoute(pathname: string): LocalRouteState {
     return { view: 'player', path, invalidPlayerId: playerId };
   }
 
-  return { view: 'split', path, invalidPath: path };
+  return { view: 'alpha', path, invalidPath: path };
 }
 
 export function localPathForView(view: LocalScreenView, playerId = 'p1'): string {
+  if (view === 'alpha') return '/';
   if (view === 'board') return '/board';
   if (view === 'player') return `/player/${playerId}`;
   if (view === 'debug') return '/debug';
-  return '/';
+  return '/dev';
 }
 
 export function shouldOpenRouteButtonInNewTab(activeView: LocalScreenView, targetIsActive: boolean): boolean {

@@ -6,13 +6,14 @@ import { phaseReadyCount } from '../screens/screen_state';
 
 describe('local screen routes', () => {
   it('parses host, player, debug, and fallback routes without networking state', () => {
-    expect(parseLocalRoute('/')).toMatchObject({ view: 'split', path: '/' });
+    expect(parseLocalRoute('/')).toMatchObject({ view: 'alpha', path: '/' });
+    expect(parseLocalRoute('/dev')).toMatchObject({ view: 'split', path: '/dev' });
     expect(parseLocalRoute('/board')).toMatchObject({ view: 'board', path: '/board' });
     expect(parseLocalRoute('/host')).toMatchObject({ view: 'board', path: '/host' });
     expect(parseLocalRoute('/debug')).toMatchObject({ view: 'debug', path: '/debug' });
     expect(parseLocalRoute('/player/p2')).toMatchObject({ view: 'player', playerId: 'p2' });
     expect(parseLocalRoute('/player/p9')).toMatchObject({ view: 'player', invalidPlayerId: 'p9' });
-    expect(parseLocalRoute('/unknown')).toMatchObject({ view: 'split', invalidPath: '/unknown' });
+    expect(parseLocalRoute('/unknown')).toMatchObject({ view: 'alpha', invalidPath: '/unknown' });
   });
 
   it('keeps board and player route buttons from replacing active synced tabs', () => {
