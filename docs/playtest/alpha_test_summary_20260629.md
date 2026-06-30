@@ -6,7 +6,7 @@
 
 ## 判定
 
-ステータス: M4 Alpha Playtest Ready
+ステータス: M4 Closed / Alpha Playtest Ready
 
 1ゲームの人間チェックは成立した。M4はAI Alpha Readyに加えて、人間スモークチェックでもAlpha Playtest Readyと見なせる。
 
@@ -46,6 +46,8 @@
 ## M4への反映
 
 M4は完了扱いを維持する。上記課題は、Alpha Playtest Readyを妨げるブロッカーではなく、次フェーズの改善項目として扱う。
+
+2026-06-30にM4終了判定。以後の改善はM5/Public Alpha v0.1準備へ移管する。
 
 ## 2026-06-30 UI追補
 

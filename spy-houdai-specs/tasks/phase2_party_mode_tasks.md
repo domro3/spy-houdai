@@ -1,8 +1,8 @@
 # Phase 2: Party Mode 追加タスク
 
-ステータス: M4 Complete / Alpha Playtest Ready
+ステータス: M4 Closed / Alpha Playtest Ready / M5へ移行
 
-M4はAI Alpha PreflightとPost-M4人間スモークチェックを完了し、Alpha Playtest Readyとしてクローズした。
+M4はAI Alpha PreflightとPost-M4人間スモークチェックを完了し、2026-06-30に終了判定した。以後のスマホ入口、Public Alpha、妨害演出、公開前レビューはM5以降で扱う。
 
 ## 1. 目的
 
@@ -25,6 +25,7 @@ Phase 1完了後、標準入口としてParty Modeを追加する。
 - [x] AI Alpha PreflightでCPUプレイ・時間見込み・公開ログ・画面分離を自動確認する
 - [x] M4をAI Alpha Readyとしてクローズし、人間プレイテストをPost-M4確認へ移管する
 - [x] Post-M4人間スモークチェックを記録し、M4をAlpha Playtest Readyと判定する
+- [x] 2026-06-30にM4を終了判定し、残改善をM5/Public Alpha準備へ移管する
 
 ## 3. 確認コマンド
 
@@ -67,6 +68,8 @@ npm run playtest:ai -- --games 100
 - [x] 説明なしでBoardの戦況が読めるか確認する
 - [ ] Player端末だけで次に押す操作が分かるか確認する
 - [ ] 結果発表と称号が盛り上がりにつながるか確認する
+
+未完の人間再確認項目は、M4ブロッカーではなくM5/Public Alpha v0.1準備の確認項目として引き継ぐ。
 
 M4完了レポート: `docs/playtest/m4_completion_report.md`
 
