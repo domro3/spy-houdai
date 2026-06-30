@@ -311,7 +311,17 @@ function App() {
                 onBack={() => setAlphaStarted(false)}
                 onOpenBoard={() => navigateLocal('/board')}
               />
-              <SyncedPlayerScreen playerId={safeActivePlayerId} client={alphaClient} />
+              <SyncedPlayerScreen
+                playerId={safeActivePlayerId}
+                client={alphaClient}
+                resultActions={engine.state.phase === 'finished' ? (
+                  <AlphaResultActions
+                    onRestart={startSoloAlpha}
+                    onBack={() => setAlphaStarted(false)}
+                    onOpenBoard={() => navigateLocal('/board')}
+                  />
+                ) : undefined}
+              />
             </div>
           ) : (
             <PublicAlphaEntry
@@ -565,6 +575,34 @@ function AlphaPlayHeader({
         <button type="button" className="tiny-button" onClick={onBack}>入口</button>
         <button type="button" className="tiny-button" onClick={onOpenBoard}>Board</button>
         <button type="button" className="tiny-button" onClick={onRestart}>新規</button>
+      </div>
+    </section>
+  );
+}
+
+function AlphaResultActions({
+  onRestart,
+  onBack,
+  onOpenBoard,
+}: {
+  onRestart: () => void;
+  onBack: () => void;
+  onOpenBoard: () => void;
+}) {
+  return (
+    <section className="alpha-result-actions" aria-label="Alpha結果後の操作">
+      <div>
+        <span className="section-kicker">Public Alpha loop</span>
+        <strong>この端末でもう一戦できます</strong>
+        <em>結果を確認したら、同じ設定ですぐ次のゲームへ進めます。</em>
+      </div>
+      <div className="alpha-result-action-row">
+        <button type="button" className="icon-button primary alpha-rematch-button" onClick={onRestart}>
+          <GameIcon name="sync" size={28} />
+          もう一戦
+        </button>
+        <button type="button" className="tiny-button" onClick={onBack}>入口へ戻る</button>
+        <button type="button" className="tiny-button" onClick={onOpenBoard}>Boardで確認</button>
       </div>
     </section>
   );

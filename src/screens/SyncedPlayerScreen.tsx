@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { RefreshCcw, Trophy, Vote } from 'lucide-react';
 import {
   CoreGuardTurret,
@@ -15,8 +15,10 @@ import type { PlayerScreenViewModel } from './screen_view_models';
 export function SyncedPlayerScreen({
   playerId,
   client,
+  resultActions,
 }: {
   playerId: string;
+  resultActions?: ReactNode;
   client: LocalPlayerClientState & {
     submitAction: (submission: ActionSubmission) => void;
     submitVote: (submission: VoteSubmission) => void;
@@ -54,7 +56,7 @@ export function SyncedPlayerScreen({
             <SyncedIdentityPanel view={view} />
             <div className="terminal-command-column">
               {view.phase === 'finished' ? (
-                <SyncedFinishedPanel view={view} />
+                <SyncedFinishedPanel view={view} resultActions={resultActions} />
               ) : (
                 <>
                   <SyncedControls view={view} client={client} />
@@ -442,7 +444,13 @@ function SyncedInferenceHints({ view }: { view: PlayerScreenViewModel }) {
   );
 }
 
-function SyncedFinishedPanel({ view }: { view: PlayerScreenViewModel }) {
+function SyncedFinishedPanel({
+  view,
+  resultActions,
+}: {
+  view: PlayerScreenViewModel;
+  resultActions?: ReactNode;
+}) {
   const personalAwards = view.result?.awards.filter((award) => award.isMine) ?? [];
   const sharedAwards = view.result?.awards.filter((award) => !award.isMine).slice(0, 4) ?? [];
   return (
@@ -471,6 +479,7 @@ function SyncedFinishedPanel({ view }: { view: PlayerScreenViewModel }) {
         </div>
       )}
       <PrivateLogList logs={view.privateLogs.slice(-4)} />
+      {resultActions}
     </div>
   );
 }
