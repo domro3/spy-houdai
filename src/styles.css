@@ -5110,6 +5110,63 @@ body:has(.app-shell.view-player) {
   padding: 8px 10px;
 }
 
+.view-player .command-decision-hint {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 7px;
+  align-items: center;
+  min-height: 36px;
+  padding: 7px 9px;
+  border: 1px solid rgb(34 199 232 / 20%);
+  border-radius: 7px;
+  background: rgb(34 199 232 / 10%);
+  color: #ffffff;
+}
+
+.view-player .command-decision-hint span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 22px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 12%);
+  color: rgb(248 250 252 / 80%);
+  padding: 0 8px;
+  font-size: 0.68rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.view-player .command-decision-hint strong {
+  overflow: hidden;
+  font-size: 0.95rem;
+  font-weight: 950;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.view-player .command-decision-hint.warning {
+  border-color: rgb(245 183 51 / 34%);
+  background: rgb(245 183 51 / 13%);
+}
+
+.view-player .command-decision-hint.danger {
+  border-color: rgb(232 74 58 / 36%);
+  background: rgb(232 74 58 / 15%);
+}
+
+.view-player .command-decision-hint.noise,
+.view-player .command-decision-hint.spy {
+  border-color: rgb(184 141 255 / 38%);
+  background: rgb(139 63 242 / 17%);
+}
+
+.view-player .command-decision-hint.submitted {
+  border-color: rgb(69 200 90 / 30%);
+  background: rgb(69 200 90 / 14%);
+}
+
 .view-player .choice-grid,
 .view-player .terminal-dashboard-grid .choice-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));

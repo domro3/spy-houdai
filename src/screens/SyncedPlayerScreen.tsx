@@ -10,7 +10,7 @@ import {
 import type { ActionSubmission, BranchPlan, BranchVoteSubmission, VoteSubmission } from '../core/types';
 import type { LocalPlayerClientState } from '../local_sync/player_client';
 import { PublicBoardPreview } from './PublicBoardPreview';
-import type { PlayerScreenViewModel } from './screen_view_models';
+import type { HostBoardView, PlayerScreenViewModel } from './screen_view_models';
 
 export function SyncedPlayerScreen({
   playerId,
@@ -59,7 +59,7 @@ export function SyncedPlayerScreen({
                 <SyncedFinishedPanel view={view} resultActions={resultActions} />
               ) : (
                 <>
-                  <SyncedControls view={view} client={client} />
+                  <SyncedControls view={view} client={client} board={client.hostView?.board} />
                   <PlayerStepBanner view={view} />
                 </>
               )}
@@ -249,11 +249,69 @@ function playerStepBody(view: PlayerScreenViewModel): string {
   return '選ぶとすぐ戦況へ送信されます。';
 }
 
+function CommandDecisionHint({
+  view,
+  board,
+}: {
+  view: PlayerScreenViewModel;
+  board?: HostBoardView;
+}) {
+  const hint = commandDecisionHint(view, board);
+  return (
+    <div className={`command-decision-hint ${hint.tone}`}>
+      <span>{hint.label}</span>
+      <strong>{hint.body}</strong>
+    </div>
+  );
+}
+
+function commandDecisionHint(
+  view: PlayerScreenViewModel,
+  board?: HostBoardView,
+): { label: string; body: string; tone: string } {
+  if (playerPhaseSubmitted(view)) {
+    return { label: '送信済み', body: '同期待機中', tone: 'submitted' };
+  }
+  if (view.wasSabotaged) {
+    return { label: '通信ノイズ', body: '前回、妨害を受けています', tone: 'noise' };
+  }
+  if (view.phase === 'vote') {
+    return { label: view.mode === 'party' ? 'スパイ予想' : '投票', body: '候補を1つ押す', tone: 'active' };
+  }
+  if (view.phase === 'plea') {
+    return { label: '弁明', body: 'カードを1つ選ぶ', tone: 'active' };
+  }
+  if (view.phase === 'branch') {
+    return { label: '作戦投票', body: '作戦を1つ押す', tone: 'active' };
+  }
+  if (view.role === 'スパイ') {
+    return { label: '裏回線', body: '妨害 / 偽装 / 支援を選ぶ', tone: 'spy' };
+  }
+  if (board?.baseWarning?.level === 'critical') {
+    return { label: '拠点危険', body: '直す候補', tone: 'danger' };
+  }
+  if (board?.baseWarning) {
+    return { label: '耐久低下', body: '直す候補', tone: 'warning' };
+  }
+  if (board?.bossActionType === 'big_charge') {
+    return { label: '大技警戒', body: '守る候補', tone: 'warning' };
+  }
+  if (board?.bossActionType === 'target_lock' && board.bossTargetName === view.name) {
+    return { label: 'ロックオン', body: '守る候補', tone: 'danger' };
+  }
+  if (board?.bossActionType === 'armor_regen') {
+    return { label: '装甲再生', body: '撃つ候補', tone: 'active' };
+  }
+  return { label: '基本行動', body: '迷ったら撃つ', tone: 'active' };
+}
+
 function SyncedControls({
   view,
   client,
+  board,
 }: {
   view: PlayerScreenViewModel;
+  board?: HostBoardView;
   client: {
     submitAction: (submission: ActionSubmission) => void;
     submitVote: (submission: VoteSubmission) => void;
@@ -267,7 +325,7 @@ function SyncedControls({
     <div className="manual-stack">
       {view.phase === 'vote' && view.inferenceHints.length > 0 && <SyncedInferenceHints view={view} />}
       {submitted && view.phase !== 'finished' && <SubmittedWaitPanel view={view} />}
-      {view.phase === 'action' && <SyncedActionControls view={view} onSubmit={client.submitAction} />}
+      {view.phase === 'action' && <SyncedActionControls view={view} board={board} onSubmit={client.submitAction} />}
       {view.phase === 'plea' && <SyncedPleaControls view={view} onSubmit={client.submitPlea} />}
       {view.phase === 'vote' && <SyncedVoteControls view={view} onSubmit={client.submitVote} />}
       {view.phase === 'branch' && <SyncedBranchControls view={view} onSubmit={client.submitBranchVote} />}
@@ -289,9 +347,11 @@ function SubmittedWaitPanel({ view }: { view: PlayerScreenViewModel }) {
 
 function SyncedActionControls({
   view,
+  board,
   onSubmit,
 }: {
   view: PlayerScreenViewModel;
+  board?: HostBoardView;
   onSubmit: (submission: ActionSubmission) => void;
 }) {
   const [targetId, setTargetId] = useState(view.targetOptions[0]?.id);
@@ -332,6 +392,7 @@ function SyncedActionControls({
   return (
     <div className="manual-card action-command-card panel-action-card">
       <ControlTitle view={view} title="行動選択" />
+      <CommandDecisionHint view={view} board={board} />
       <SelectionStatus label="選択済み" value={view.selectedActionLabel} />
       {view.selectedActionTargetName && <SelectionStatus label="対象" value={view.selectedActionTargetName} />}
       {grouped ? (
@@ -360,6 +421,7 @@ function SyncedPleaControls({ view, onSubmit }: { view: PlayerScreenViewModel; o
   return (
     <div className="manual-card action-command-card panel-action-card">
       <ControlTitle view={view} title="弁明カード" />
+      <CommandDecisionHint view={view} />
       <SelectionStatus label="選択済み" value={view.selectedPlea ?? '未選択'} />
       <select value={view.selectedPlea ?? ''} disabled={submitted} onChange={(event) => onSubmit(event.target.value)}>
         <option value="" disabled>弁明カードを選択</option>
@@ -374,6 +436,7 @@ function SyncedVoteControls({ view, onSubmit }: { view: PlayerScreenViewModel; o
   return (
     <div className="manual-card action-command-card panel-action-card">
       <ControlTitle view={view} title={view.mode === 'party' ? 'スパイ予想' : '疑惑投票'} />
+      <CommandDecisionHint view={view} />
       <SelectionStatus label="投票先" value={view.selectedVoteTargetName ?? '未選択'} />
       <div className="choice-grid">
         {view.voteOptions.map((candidate) => (
@@ -404,6 +467,7 @@ function SyncedBranchControls({
   return (
     <div className="manual-card action-command-card panel-action-card">
       <ControlTitle view={view} title="作戦投票" />
+      <CommandDecisionHint view={view} />
       <SelectionStatus
         label="選択済み"
         value={view.branchOptions.find((option) => option.plan === view.selectedBranchPlan)?.label ?? '未選択'}
