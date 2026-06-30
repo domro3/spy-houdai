@@ -380,7 +380,7 @@ function SyncedVoteControls({ view, onSubmit }: { view: PlayerScreenViewModel; o
           <button
             type="button"
             key={candidate.id}
-            className={view.selectedVoteTargetId === candidate.id ? 'choice selected' : 'choice'}
+            className={view.selectedVoteTargetId === candidate.id ? 'choice vote-choice selected' : 'choice vote-choice'}
             disabled={submitted}
             onClick={() => onSubmit({ voterId: view.id, targetId: candidate.id })}
           >
@@ -413,7 +413,7 @@ function SyncedBranchControls({
           <button
             type="button"
             key={option.plan}
-            className={view.selectedBranchPlan === option.plan ? 'choice selected' : 'choice'}
+            className={view.selectedBranchPlan === option.plan ? 'choice branch-choice selected' : 'choice branch-choice'}
             title={option.help}
             disabled={submitted}
             onClick={() => onSubmit({ voterId: view.id, plan: option.plan as BranchPlan })}

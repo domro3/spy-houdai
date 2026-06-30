@@ -3180,6 +3180,27 @@ body:has(.app-shell.view-alpha) {
   border-color: rgb(184 141 255 / 48%);
 }
 
+.view-player .choice.vote-choice,
+.view-player .choice.branch-choice {
+  background:
+    linear-gradient(135deg, rgb(34 199 232 / 26%), rgb(22 43 64 / 96%)),
+    #102033;
+  border-color: rgb(157 239 255 / 34%);
+  color: #ffffff;
+}
+
+.view-player .choice.vote-choice span,
+.view-player .choice.branch-choice span {
+  overflow: hidden;
+  max-width: 100%;
+  color: #ffffff;
+  font-size: 1rem;
+  font-weight: 900;
+  line-height: 1.18;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .view-player .choice:not(:disabled):hover {
   transform: translateY(-2px);
   box-shadow:
