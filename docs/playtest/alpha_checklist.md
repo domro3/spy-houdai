@@ -205,3 +205,18 @@ Public Alpha v0.1のソロ導線で、結果表示から再戦までを追加確
 確認スクリーンショット:
 
 - `/tmp/spy-houdai-vote-fixed-390.png`
+
+## 2026-06-30 AI追補確認 5
+
+`もう一戦` 後も同じSeedで始まり、ボス行動が同じに見える問題を修正した。
+
+| 確認項目 | 結果 / メモ |
+| --- | --- |
+| `もう一戦` で次のAlpha用Seedへ進む | OK。再戦時にSeedを更新 |
+| 初回ゲームと再戦後のROUND 1ボス予告が変わる | OK。初回 `大技チャージ`、再戦後 `通常攻撃` を確認 |
+| 390px幅の再戦後画面で横スクロールが出ない | OK。scrollWidth 390 / clientWidth 390 |
+| 再戦後もROUND 1の行動選択へ戻る | OK |
+
+確認スクリーンショット:
+
+- `/tmp/spy-houdai-alpha-rematch-seed-varies-390.png`

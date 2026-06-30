@@ -29,11 +29,12 @@ import './styles.css';
 
 const INITIAL_LOCAL_ROUTE = parseLocalRoute(window.location.pathname);
 const INITIAL_IS_ALPHA = INITIAL_LOCAL_ROUTE.view === 'alpha';
+const INITIAL_SEED = 20260627;
 
 function App() {
   const [totalPlayers, setTotalPlayers] = useState(5);
   const [humanPlayers, setHumanPlayers] = useState(INITIAL_IS_ALPHA ? 1 : 5);
-  const [seed, setSeed] = useState(20260627);
+  const [seed, setSeed] = useState(INITIAL_SEED);
   const [mode, setMode] = useState<GameMode>('party');
   const [localRoute, setLocalRoute] = useState(INITIAL_LOCAL_ROUTE);
   const [activePlayerId, setActivePlayerId] = useState(INITIAL_LOCAL_ROUTE.playerId ?? 'p1');
@@ -42,7 +43,7 @@ function App() {
   const [engine, setEngine] = useState(() => new GameEngine({
     totalPlayers: 5,
     humanPlayers: INITIAL_IS_ALPHA ? 1 : 5,
-    seed: 20260627,
+    seed: INITIAL_SEED,
     mode: 'party',
   }));
   const [, forceRender] = useState(0);
@@ -118,15 +119,17 @@ function App() {
     }
   }
 
-  function startSoloAlpha() {
+  function startSoloAlpha({ advanceSeed = false }: { advanceSeed?: boolean } = {}) {
+    const nextSeed = advanceSeed ? nextAlphaSeed(seed) : seed;
     const nextEngine = new GameEngine({
       totalPlayers: 5,
       humanPlayers: 1,
-      seed,
+      seed: nextSeed,
       mode: 'party',
     });
     setTotalPlayers(5);
     setHumanPlayers(1);
+    setSeed(nextSeed);
     setMode('party');
     setActivePlayerId('p1');
     setEngine(nextEngine);
@@ -307,7 +310,7 @@ function App() {
             <div className="alpha-play-stack">
               <AlphaPlayHeader
                 engine={engine}
-                onRestart={startSoloAlpha}
+                onRestart={() => startSoloAlpha({ advanceSeed: true })}
                 onBack={() => setAlphaStarted(false)}
                 onOpenBoard={() => navigateLocal('/board')}
               />
@@ -316,7 +319,7 @@ function App() {
                 client={alphaClient}
                 resultActions={engine.state.phase === 'finished' ? (
                   <AlphaResultActions
-                    onRestart={startSoloAlpha}
+                    onRestart={() => startSoloAlpha({ advanceSeed: true })}
                     onBack={() => setAlphaStarted(false)}
                     onOpenBoard={() => navigateLocal('/board')}
                   />
@@ -326,7 +329,7 @@ function App() {
           ) : (
             <PublicAlphaEntry
               seed={seed}
-              onStartSolo={startSoloAlpha}
+              onStartSolo={() => startSoloAlpha()}
               onOpenBoard={() => navigateLocal('/board')}
               onOpenPlayer={() => navigateLocal('/player/p1')}
               onOpenDev={() => navigateLocal('/dev')}
@@ -426,6 +429,12 @@ function advanceLocalAlpha(engine: GameEngine): void {
 
 function allActionsReady(engine: GameEngine): boolean {
   return engine.state.players.every((player) => engine.state.submittedActions[player.id]);
+}
+
+function nextAlphaSeed(currentSeed: number): number {
+  const normalized = Number.isFinite(currentSeed) ? Math.trunc(currentSeed) : INITIAL_SEED;
+  const mixed = (Math.imul(normalized, 1664525) + 1013904223) >>> 0;
+  return 100000 + (mixed % 900000000);
 }
 
 function LocalRouteBar({
