@@ -2,7 +2,7 @@
 
 作成日: 2026-07-01
 
-ステータス: M6 AI代替チェック完了 / Public Internet公開はデプロイ先未決
+ステータス: M6 Public Alpha公開済み / GitHub Pages
 
 ## 目的
 
@@ -38,7 +38,7 @@ M6の中心は、ゲーム内容の追加ではなく、公開前に必要な配
 | Board | 任意補助 |
 | 配布方式 | 静的Webビルド |
 | デプロイ先 | GitHub Pages予定 |
-| 公開URL | `https://domro3.github.io/spy-houdai/` 予定 |
+| 公開URL | `https://domro3.github.io/spy-houdai/` |
 | フィードバック先 | 初回は手動収集 |
 
 ## 完了条件
@@ -56,8 +56,8 @@ M6の中心は、ゲーム内容の追加ではなく、公開前に必要な配
 
 | 種別 | 内容 | 次アクション |
 | --- | --- | --- |
-| デプロイ | GitHub Pages workflowは追加済み。GitHub remoteが未設定 | GitHub repoを作成してpushする |
-| 公開URL | `https://domro3.github.io/spy-houdai/` 予定 | push後にActions/Pagesで確認 |
+| デプロイ | GitHub Pagesへ公開済み | Actions/Pagesの継続確認 |
+| 公開URL | `https://domro3.github.io/spy-houdai/` | 390px/1280pxの回帰確認 |
 | フィードバック | 初回は手動収集に決定 | 公開先決定後に外部フォーム化するか再判断 |
 | 商標 | J-PlatPat予備確認済み | 正式タイトル、ストア掲載、収益化前は専門家確認 |
 
@@ -72,12 +72,14 @@ M6の中心は、ゲーム内容の追加ではなく、公開前に必要な配
 - M6 human substitute checkを実施
 - GitHub Pages workflowとPages用ビルドコマンドを追加
 - GitHub Pagesの `/spy-houdai/` サブパス配信に合わせて、Vite baseとローカルルートを調整
+- GitHub repository `domro3/spy-houdai` を作成し、`main` をpush
+- GitHub Pagesをworkflowモードで有効化し、公開URLを確認
 
 ## 2026-07-01 初回M6 Preflight
 
 証跡: `docs/release/m6_release_preflight.md`
 
-結果: `NEEDS_DECISION`
+結果: 初回は `NEEDS_DECISION`
 
 自動ゲートはすべてOK。残りは外部判断ブロッカーのみ。
 
@@ -99,10 +101,26 @@ M6の中心は、ゲーム内容の追加ではなく、公開前に必要な配
 - フィードバックは初回手動収集に決定
 - Public Internet公開は、Git remote、デプロイ設定、公開URLがないためNo-Go
 
+## 2026-07-01 GitHub Pages公開
+
+リポジトリ: `https://github.com/domro3/spy-houdai`
+
+公開URL: `https://domro3.github.io/spy-houdai/`
+
+Actions run: `https://github.com/domro3/spy-houdai/actions/runs/28524932748`
+
+確認結果:
+
+- GitHub Pages deploy: success
+- `https://domro3.github.io/spy-houdai/`: HTTP 200
+- JS asset: HTTP 200
+- スマホ幅390pxでPublic Alpha入口表示OK
+- `https://domro3.github.io/spy-houdai/board` 直URL表示OK
+- サブパスリンクが `/spy-houdai/...` 形式で生成される
+- 公開URL上のコンソール警告/エラーなし
+
 ## 次アクション
 
-1. GitHub repoを作成してremoteを設定する
-2. `main` をpushする
-3. GitHub Actions / Pagesの完了を確認する
-4. 公開URLで390px/1280pxの最終確認を行う
-5. Public Alpha v0.1公開Go/No-Goを判定する
+1. 少人数へ公開URLを共有する
+2. 手動フィードバックを `docs/release/public_alpha_v0_1_feedback.md` の項目で回収する
+3. 進行不能、表示崩れ、もう一戦感を優先してM7候補へ整理する
