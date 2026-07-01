@@ -108,7 +108,7 @@ function formatReport(
     report.status === 'pass'
       ? '- 公開準備ゲートは通過。公開URLで最終確認へ進む。'
       : report.status === 'needs_decision'
-        ? '- 自動ゲートは通過。デプロイ先、フィードバック先、商標確認など外部判断が残る。'
+        ? '- 自動ゲートは通過。外部公開に必要な公開先・デプロイ設定などの判断が残る。'
         : '- 自動ゲートに失敗。公開準備を進める前に修正する。',
   ];
   return lines.join('\n');
@@ -132,12 +132,13 @@ function releaseDocsCheck(): ReleaseCheck {
     'docs/release/public_alpha_v0_1_page_copy.md',
     'docs/release/public_alpha_v0_1_feedback.md',
     'docs/release/asset_license_register.md',
+    'docs/release/m6_human_substitute_check.md',
   ];
   const missing = required.filter((path) => !existsSync(path));
   return {
     id: 'release_docs',
     label: '公開準備ドキュメント',
-    target: 'M6計画、公開文言、フィードバック、素材台帳がある',
+    target: 'M6計画、公開文言、フィードバック、素材台帳、人間代替チェックがある',
     observed: missing.length === 0 ? '必要ドキュメントあり' : `不足: ${missing.join(', ')}`,
     passed: missing.length === 0,
   };

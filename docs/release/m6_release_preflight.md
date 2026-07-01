@@ -13,7 +13,7 @@
 | OK | M5完了証跡 | M5が完了済みとして記録されている | 必要記録あり |
 | OK | M5 AI Preflight | M5のAI代替ゲートがPASSしている | 必要記録あり |
 | OK | 公開準備コマンド | build, test, typecheck, playtest:m5, release:m6 | 必要コマンドあり |
-| OK | 公開準備ドキュメント | M6計画、公開文言、フィードバック、素材台帳がある | 必要ドキュメントあり |
+| OK | 公開準備ドキュメント | M6計画、公開文言、フィードバック、素材台帳、人間代替チェックがある | 必要ドキュメントあり |
 | OK | 公開メタ情報 | viewport、description、OG、theme-colorがある | 必要metaあり |
 | OK | 静的ビルド成果物 | dist/index.html と dist/assets のJS/CSSがある | index=あり / assets=2 |
 | OK | 公開配布素材 | Finderメタデータや出所未記録のプロトタイプ画像をpublicへ含めない | public files=0 |
@@ -24,9 +24,7 @@
 
 - Git remoteが未設定。公開先リポジトリまたはデプロイ元を決める。
 - デプロイ設定が未設定。GitHub Pages、Netlify、Vercel、itch.io等から選ぶ。
-- フィードバック送信先が未決定。
-- 主要名称のJ-PlatPat公式商標検索が未完了。
 
 ## 判定
 
-- 自動ゲートは通過。デプロイ先、フィードバック先、商標確認など外部判断が残る。
+- 自動ゲートは通過。外部公開に必要な公開先・デプロイ設定などの判断が残る。
