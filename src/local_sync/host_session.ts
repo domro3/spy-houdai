@@ -13,7 +13,7 @@ import {
   type HostToPlayerMessage,
   type LocalSyncMessage,
 } from './messages';
-import { createBroadcastChannelTransport, type LocalSyncTransport } from './transport';
+import { createDefaultLocalSyncTransport, type LocalSyncTransport } from './transport';
 
 export interface LocalHostSessionStatus {
   role: 'host';
@@ -53,7 +53,7 @@ export class LocalHostSession {
 
   constructor(options: LocalHostSessionOptions) {
     this.engine = options.engine;
-    this.transport = options.transport ?? createBroadcastChannelTransport();
+    this.transport = options.transport ?? createDefaultLocalSyncTransport();
     this.sessionId = options.sessionId ?? createSessionId();
     this.autoAdvanceEnabled = options.autoAdvanceEnabled ?? true;
     this.autoAdvanceDelayMs = options.autoAdvanceDelayMs ?? 800;

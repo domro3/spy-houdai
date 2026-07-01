@@ -1,6 +1,6 @@
 # M4 Screen Separation Prototype
 
-Status: local no-facilitator prototype. This is not online play, LAN play, or smartphone support.
+Status: local no-facilitator prototype with LAN relay support. This is not public internet matchmaking or account-based online play.
 
 ## No-Facilitator Direction
 
@@ -25,9 +25,10 @@ M4 separates the local UI into three screen responsibilities while keeping `Game
 - `src/screens/local_routes.ts`: lightweight local path parsing for `/`, `/board`, `/host`, `/player/:id`, and `/debug`.
 - `src/screens/screen_view_models.ts`: public/private screen projections used for privacy guardrails.
 - `src/local_sync/messages.ts`: serializable local sync message types.
-- `src/local_sync/transport.ts`: BroadcastChannel-backed transport wrapper with no-op fallback.
+- `src/local_sync/transport.ts`: same-browser `BroadcastChannel` transport plus optional LAN HTTP relay transport.
 - `src/local_sync/host_session.ts`: host-owned local session controller and automatic phase progression owner.
 - `src/local_sync/player_client.ts`: local player client hook for `/player/:id`.
+- `scripts/serve_lan.mjs`: static app server with `/sync` EventSource/fetch relay endpoints for same-LAN devices.
 
 ## HostScreen
 
@@ -96,6 +97,8 @@ Invalid paths fall back to the development shell. Invalid player ids show a frie
 
 M4.5 added a local multi-tab prototype using `BroadcastChannel`. M4.6 keeps that transport model and changes the normal entry point to `/board`.
 
+M7 adds a same-LAN relay server. When the app is opened from an HTTP LAN address, such as `http://192.168.1.10:8787/board`, `src/local_sync/transport.ts` uses the HTTP relay instead of `BroadcastChannel`.
+
 Authority model:
 
 - `/board` owns `GameEngine`.
@@ -125,18 +128,21 @@ Message boundaries:
 - Host snapshots contain `HostScreenViewModel`.
 - Player tabs use the host snapshot for the public Board preview and the targeted player update for private controls.
 - Player updates contain `PlayerScreenViewModel` plus a target `playerId`.
-- BroadcastChannel is same-origin and local-only. It is not a security boundary.
-- The code is structured as per-recipient player messages so a future WebSocket transport can enforce privacy server-side.
+- BroadcastChannel is same-origin and same-browser-profile only. It is not a security boundary.
+- The LAN relay broadcasts protocol messages between connected browser clients. It is for trusted local play, not authenticated internet play.
+- The code is structured as per-recipient player messages so a future authenticated transport can enforce privacy server-side.
 
 ## Known Limitations
 
+- GitHub Pages static hosting does not provide cross-device sync by itself.
+- Same-LAN device sync requires running `npm run serve:lan -- --host 0.0.0.0 --port 8787` on a host machine.
 - BroadcastChannel local sync only works between same-origin tabs on the same browser profile.
-- BroadcastChannel is not real networking and does not provide privacy against same-origin developer inspection.
+- BroadcastChannel and LAN relay modes are not authentication or privacy boundaries.
 - If `/board` is closed, player tabs move to a waiting/disconnected state.
 - Reopening `/board` starts a clear local session from the board tab's current setup.
 - The `/` development shell remains single-tab local and is not the sync host.
 - `/debug` is for developers and can expose manual controls or debug information. It should not be used as the public table screen.
-- There are no rooms, WebSockets, LAN discovery, QR codes, authentication, or smartphone-specific controls.
+- There are no rooms, LAN discovery, QR codes, authentication, or smartphone-specific pairing controls.
 - The route structure is a prototype for future separation, not a networking layer.
 
 ## Future Path
@@ -147,14 +153,12 @@ Future local network or online work should keep this boundary:
 - HostScreen consumes public projected state.
 - PlayerScreen consumes one player's projected state and sends input intents.
 - DebugPanel remains developer-only.
-- A future WebSocket or local network transport should replace `transport.ts` while preserving the message/view-model boundary.
+- A future hosted WebSocket/WebRTC transport should preserve the message/view-model boundary.
 - Future server-side transport must enforce that each player receives only their own private view.
 
 ## Explicitly Not Implemented
 
-- online play
-- WebSocket transport
-- LAN transport
+- public internet online play
 - room creation or matchmaking
 - smartphone pairing
 - QR joining

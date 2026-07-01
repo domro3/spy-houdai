@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { ActionSubmission, BranchVoteSubmission, VoteSubmission } from '../core/types';
 import type { HostScreenViewModel, PlayerScreenViewModel } from '../screens/screen_view_models';
 import { createLocalSyncMessage, type LocalSyncMessage } from './messages';
-import { createBroadcastChannelTransport, type LocalSyncTransport } from './transport';
+import { createDefaultLocalSyncTransport, type LocalSyncTransport } from './transport';
 
 export type LocalPlayerConnectionStatus = 'connecting' | 'connected' | 'waiting' | 'unavailable';
 
@@ -40,7 +40,7 @@ export function useLocalPlayerClient(playerId: string, enabled = true): LocalPla
       return undefined;
     }
 
-    const transport = createBroadcastChannelTransport();
+    const transport = createDefaultLocalSyncTransport();
     transportRef.current = transport;
 
     if (!transport.available) {

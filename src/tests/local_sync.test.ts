@@ -1,9 +1,18 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { GameEngine } from '../core/game_engine';
 import { LocalHostSession } from '../local_sync/host_session';
 import { createLocalSyncMessage, isLocalSyncMessage } from '../local_sync/messages';
-import { createBroadcastChannelTransport, type LocalSyncHandler, type LocalSyncTransport } from '../local_sync/transport';
+import {
+  createBroadcastChannelTransport,
+  createDefaultLocalSyncTransport,
+  type LocalSyncHandler,
+  type LocalSyncTransport,
+} from '../local_sync/transport';
 import type { LocalSyncMessage } from '../local_sync/messages';
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe('local sync messages', () => {
   it('creates serializable protocol messages', () => {
@@ -43,6 +52,104 @@ describe('local sync transport', () => {
     expect(transport.available).toBe(false);
     expect(transport.closed).toBe(true);
     globalThis.BroadcastChannel = original;
+  });
+
+  it('uses the HTTP relay transport when relay mode is requested', () => {
+    const eventSourceUrls: string[] = [];
+    const fetchCalls: Array<[string, RequestInit]> = [];
+    const fetchMock = vi.fn((url: string, init: RequestInit) => {
+      fetchCalls.push([url, init]);
+      return Promise.resolve({ ok: true });
+    });
+    class FakeEventSource {
+      onmessage: ((event: MessageEvent<string>) => void) | null = null;
+
+      constructor(url: string) {
+        eventSourceUrls.push(url);
+      }
+
+      close(): void {
+        // The fake only records wiring; stream behavior is covered by the LAN server check.
+      }
+    }
+
+    vi.stubGlobal('window', {
+      location: { search: '?relay=1', protocol: 'http:', hostname: '127.0.0.1' },
+    });
+    vi.stubGlobal('EventSource', FakeEventSource);
+    vi.stubGlobal('fetch', fetchMock);
+    vi.stubGlobal('BroadcastChannel', class {
+      constructor() {
+        throw new Error('BroadcastChannel should not be used in relay mode');
+      }
+    });
+
+    const transport = createDefaultLocalSyncTransport();
+    transport.post(createLocalSyncMessage('request_snapshot', 'player', { playerId: 'p1' }));
+    transport.close();
+
+    expect(transport.available).toBe(true);
+    expect(eventSourceUrls[0]).toMatch(/^\/sync\/events\?clientId=/);
+    expect(fetchMock).toHaveBeenCalledWith('/sync/message', expect.objectContaining({
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    }));
+    const postedRequest = fetchCalls[0];
+    expect(postedRequest).toBeDefined();
+    const body = JSON.parse(postedRequest?.[1].body as string) as { message: LocalSyncMessage };
+    expect(body.message.type).toBe('request_snapshot');
+  });
+
+  it('auto-enables the HTTP relay for LAN host URLs', () => {
+    const eventSourceUrls: string[] = [];
+    class FakeEventSource {
+      onmessage: ((event: MessageEvent<string>) => void) | null = null;
+
+      constructor(url: string) {
+        eventSourceUrls.push(url);
+      }
+
+      close(): void {
+        // The fake only records transport selection.
+      }
+    }
+
+    vi.stubGlobal('window', {
+      location: { search: '', protocol: 'http:', hostname: '192.168.1.30' },
+    });
+    vi.stubGlobal('EventSource', FakeEventSource);
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({ ok: true })));
+    vi.stubGlobal('BroadcastChannel', class {
+      constructor() {
+        throw new Error('BroadcastChannel should not be used for LAN host URLs');
+      }
+    });
+
+    const transport = createDefaultLocalSyncTransport();
+    transport.close();
+
+    expect(transport.available).toBe(true);
+    expect(eventSourceUrls).toHaveLength(1);
+  });
+
+  it('marks requested HTTP relay unavailable when browser APIs are missing', () => {
+    vi.stubGlobal('window', {
+      location: { search: '?relay=1', protocol: 'http:', hostname: '127.0.0.1' },
+    });
+    vi.stubGlobal('EventSource', undefined);
+    vi.stubGlobal('fetch', undefined);
+    vi.stubGlobal('BroadcastChannel', class {
+      constructor() {
+        throw new Error('BroadcastChannel should not be used in relay mode');
+      }
+    });
+
+    const transport = createDefaultLocalSyncTransport();
+    transport.post(createLocalSyncMessage('request_snapshot', 'player', { playerId: 'p1' }));
+    transport.close();
+
+    expect(transport.available).toBe(false);
+    expect(transport.closed).toBe(true);
   });
 });
 

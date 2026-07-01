@@ -136,7 +136,7 @@ function WaitingForHost({
         <GameIcon name="sync" size={32} />
       </div>
       <h3>{playerId} はホスト画面を待っています</h3>
-      <p className="muted">同じブラウザで /board を開くと、この画面にプレイヤー表示が届きます。</p>
+      <p className="muted">Board端末で /board を開くと、この画面にプレイヤー表示が届きます。LAN接続時は同じWi-FiのBoard URLを使います。</p>
       <button type="button" className="icon-button primary" onClick={client.requestSnapshot}>
         <RefreshCcw size={18} />
         ホストを探す
