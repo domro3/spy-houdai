@@ -2308,6 +2308,8 @@ body:has(.app-shell.view-alpha) {
 .view-alpha h1 {
   color: #f8fafc;
   font-size: clamp(2rem, 10vw, 3rem);
+  white-space: nowrap;
+  word-break: keep-all;
 }
 
 .view-alpha .eyebrow {
@@ -2382,6 +2384,7 @@ body:has(.app-shell.view-alpha) {
   color: #f8fafc;
   font-size: clamp(2rem, 12vw, 4rem);
   line-height: 0.98;
+  word-break: keep-all;
 }
 
 .alpha-entry-copy p {
@@ -2390,6 +2393,45 @@ body:has(.app-shell.view-alpha) {
   color: rgb(248 250 252 / 78%);
   font-weight: 800;
   line-height: 1.55;
+}
+
+.alpha-highlight-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.alpha-highlight-strip div {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 8px;
+  row-gap: 2px;
+  align-items: center;
+  min-height: 72px;
+  padding: 10px;
+  border-radius: 8px;
+  background: rgb(255 255 255 / 7%);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 8%);
+}
+
+.alpha-highlight-strip .game-icon {
+  grid-row: 1 / 3;
+  color: #9defff;
+}
+
+.alpha-highlight-strip span {
+  overflow-wrap: anywhere;
+  color: rgb(248 250 252 / 66%);
+  font-size: 0.72rem;
+  font-weight: 900;
+  line-height: 1.25;
+}
+
+.alpha-highlight-strip strong {
+  overflow-wrap: anywhere;
+  color: #f8fafc;
+  font-size: 0.82rem;
+  line-height: 1.25;
 }
 
 .alpha-cta-row,
@@ -4531,6 +4573,16 @@ dd {
 
   .alpha-entry-copy h2 {
     font-size: clamp(2rem, 13vw, 3.1rem);
+  }
+
+  .alpha-highlight-strip {
+    grid-template-columns: 1fr;
+    gap: 7px;
+  }
+
+  .alpha-highlight-strip div {
+    min-height: 54px;
+    padding: 9px 10px;
   }
 
   .alpha-cta-row .icon-button {

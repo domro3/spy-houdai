@@ -15,6 +15,7 @@ import { useLocalHostSession } from './local_sync/host_session';
 import { useLocalPlayerClient, type LocalPlayerClientState } from './local_sync/player_client';
 import { DebugPanel } from './screens/DebugPanel';
 import { HostScreen } from './screens/HostScreen';
+import { INITIAL_ALPHA_SEED, nextAlphaSeed } from './screens/alpha_seed';
 import {
   localPathForView,
   parseLocalRoute,
@@ -22,6 +23,7 @@ import {
   type LocalScreenView,
 } from './screens/local_routes';
 import { PlayerScreen } from './screens/PlayerScreen';
+import { PUBLIC_ALPHA_ENTRY } from './screens/public_alpha_content';
 import { canResolveCurrentPhase, phaseLabel } from './screens/screen_state';
 import { createHostScreenViewModel, createPlayerScreenViewModel } from './screens/screen_view_models';
 import { SyncedPlayerScreen } from './screens/SyncedPlayerScreen';
@@ -29,12 +31,11 @@ import './styles.css';
 
 const INITIAL_LOCAL_ROUTE = parseLocalRoute(window.location.pathname);
 const INITIAL_IS_ALPHA = INITIAL_LOCAL_ROUTE.view === 'alpha';
-const INITIAL_SEED = 20260627;
 
 function App() {
   const [totalPlayers, setTotalPlayers] = useState(5);
   const [humanPlayers, setHumanPlayers] = useState(INITIAL_IS_ALPHA ? 1 : 5);
-  const [seed, setSeed] = useState(INITIAL_SEED);
+  const [seed, setSeed] = useState(INITIAL_ALPHA_SEED);
   const [mode, setMode] = useState<GameMode>('party');
   const [localRoute, setLocalRoute] = useState(INITIAL_LOCAL_ROUTE);
   const [activePlayerId, setActivePlayerId] = useState(INITIAL_LOCAL_ROUTE.playerId ?? 'p1');
@@ -43,7 +44,7 @@ function App() {
   const [engine, setEngine] = useState(() => new GameEngine({
     totalPlayers: 5,
     humanPlayers: INITIAL_IS_ALPHA ? 1 : 5,
-    seed: INITIAL_SEED,
+    seed: INITIAL_ALPHA_SEED,
     mode: 'party',
   }));
   const [, forceRender] = useState(0);
@@ -431,12 +432,6 @@ function allActionsReady(engine: GameEngine): boolean {
   return engine.state.players.every((player) => engine.state.submittedActions[player.id]);
 }
 
-function nextAlphaSeed(currentSeed: number): number {
-  const normalized = Number.isFinite(currentSeed) ? Math.trunc(currentSeed) : INITIAL_SEED;
-  const mixed = (Math.imul(normalized, 1664525) + 1013904223) >>> 0;
-  return 100000 + (mixed % 900000000);
-}
-
 function LocalRouteBar({
   players,
   activeView,
@@ -525,19 +520,30 @@ function PublicAlphaEntry({
     <section className="alpha-entry panel-status" aria-label="Public Alpha入口">
       <GameBackdrop variant="operation-terminal" />
       <div className="alpha-entry-copy">
-        <span className="section-kicker">Public Alpha v0.1</span>
-        <h2>作戦端末を起動</h2>
-        <p>
-          この端末だけで1ゲームを試せます。あなたはp1を操作し、残りの砲台はCPUが同期します。
-        </p>
+        <span className="section-kicker">{PUBLIC_ALPHA_ENTRY.kicker}</span>
+        <h2>
+          {PUBLIC_ALPHA_ENTRY.headlineLines[0]}
+          <br />
+          {PUBLIC_ALPHA_ENTRY.headlineLines[1]}
+        </h2>
+        <p>{PUBLIC_ALPHA_ENTRY.body}</p>
+        <div className="alpha-highlight-strip" aria-label="Alpha版の確認ポイント">
+          {PUBLIC_ALPHA_ENTRY.highlights.map((item) => (
+            <div key={item.label}>
+              <GameIcon name={item.icon} size={24} />
+              <span>{item.label}</span>
+              <strong>{item.value}</strong>
+            </div>
+          ))}
+        </div>
         <div className="alpha-cta-row">
           <button type="button" className="icon-button primary alpha-primary-action" onClick={onStartSolo}>
             <GameIcon name="sync" size={32} />
-            この端末で開始
+            {PUBLIC_ALPHA_ENTRY.primaryCta}
           </button>
           <button type="button" className="icon-button" onClick={onOpenBoard}>
             <GameIcon name="core" size={32} />
-            共有Board
+            {PUBLIC_ALPHA_ENTRY.boardCta}
           </button>
         </div>
       </div>
@@ -551,11 +557,12 @@ function PublicAlphaEntry({
       <div className="alpha-route-panel">
         <div>
           <strong>起動設定</strong>
-          <span>Party / 5基 / Seed {seed}</span>
+          <span>Party / 5基 / p1手動 + CPU4基 / Seed {seed}</span>
         </div>
         <div className="alpha-route-actions">
-          <button type="button" className="tiny-button" onClick={onOpenPlayer}>P1端末</button>
-          <button type="button" className="tiny-button" onClick={onOpenDev}>開発Shell</button>
+          <button type="button" className="tiny-button" onClick={onOpenPlayer}>{PUBLIC_ALPHA_ENTRY.routeActions[0]}</button>
+          <button type="button" className="tiny-button" onClick={onOpenBoard}>{PUBLIC_ALPHA_ENTRY.routeActions[1]}</button>
+          <button type="button" className="tiny-button" onClick={onOpenDev}>{PUBLIC_ALPHA_ENTRY.routeActions[2]}</button>
         </div>
       </div>
     </section>

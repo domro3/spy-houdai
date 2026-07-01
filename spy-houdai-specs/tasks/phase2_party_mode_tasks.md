@@ -1,8 +1,8 @@
 # Phase 2: Party Mode 追加タスク
 
-ステータス: M4 Closed / Alpha Playtest Ready / M5へ移行
+ステータス: M5 Closed / Public Alpha v0.1 AI Complete
 
-M4はAI Alpha PreflightとPost-M4人間スモークチェックを完了し、2026-06-30に終了判定した。以後のスマホ入口、Public Alpha、妨害演出、公開前レビューはM5以降で扱う。
+M4はAI Alpha PreflightとPost-M4人間スモークチェックを完了し、2026-06-30に終了判定した。M5はPublic Alpha v0.1のスマホ単体入口として、2026-07-01にAI完了判定した。
 
 ## 1. 目的
 
@@ -26,6 +26,10 @@ Phase 1完了後、標準入口としてParty Modeを追加する。
 - [x] M4をAI Alpha Readyとしてクローズし、人間プレイテストをPost-M4確認へ移管する
 - [x] Post-M4人間スモークチェックを記録し、M4をAlpha Playtest Readyと判定する
 - [x] 2026-06-30にM4を終了判定し、残改善をM5/Public Alpha準備へ移管する
+- [x] `/` をPublic Alpha v0.1のスマホ単体入口として整える
+- [x] `p1手動 + CPU4基` のBoardなしソロAlphaをM5の主導線にする
+- [x] M5 AI Public Alpha Preflightで初見入口、次操作、秘密情報、ソロ完走、結果/再戦を確認する
+- [x] 2026-07-01にM5を終了判定し、公開準備/M6へ移管する
 
 ## 3. 確認コマンド
 
@@ -36,6 +40,7 @@ npm run build
 npm run sim -- --games 100
 npm run sim:party -- --games 100
 npm run playtest:ai -- --games 100
+npm run playtest:m5 -- --games 100
 ```
 
 ## 4. 完了目安
@@ -73,10 +78,41 @@ npm run playtest:ai -- --games 100
 
 M4完了レポート: `docs/playtest/m4_completion_report.md`
 
-## 7. M5以降へ送る改善候補
+## 7. M5へ送った改善候補
 
 - Player端末の次操作表示を強める
 - 「個別状態」の文言を見直す
 - スパイ妨害の気づきやすさを上げる
 - 他プレイヤー待ち時間の退屈さを軽減する
 - UIのワクワク感を強める
+
+## 8. M5 AI完了判定
+
+記録元:
+
+- `docs/playtest/m5_public_alpha_preflight.md`
+- `docs/playtest/m5_completion_report.md`
+- `docs/pm/mobile_screen_redesign_plan.md`
+
+確認済み:
+
+- `/` がPublic Alpha v0.1入口として表示される
+- 入口でAlpha版、スマホ推奨、5から8分目安、CPU4基同期、Boardなし進行が分かる
+- p1 AIユーザー + CPU4基でスパイ予想と結果まで到達する
+- 結果画面で勝者、スパイ正体、おまけ投票、称号が読める
+- 再戦で新規SeedのROUND 1へ戻れる
+- Board/通常端末に秘密情報が漏れない
+- M4 AI Alpha Preflightの品質ゲートを維持する
+
+M5で閉じた扱い:
+
+- Player端末の次操作表示を強める
+- 「個別状態」の文言をPublic Alpha入口では前面に出さない
+- Boardなしソロ導線では他プレイヤー待ち時間をCPU自動同期で短縮する
+- UIの最低限のPublic Alpha感を、既存CSS/SVGビジュアルと入口コピーで確保する
+
+M5外へ送る扱い:
+
+- 妨害演出のさらなる強化
+- 公開後の人間プレイテストによる面白さ、盛り上がり、もう一戦感の確認
+- デプロイ、権利レビュー、公開文言、配布ページ整備
