@@ -37,8 +37,8 @@ M6の中心は、ゲーム内容の追加ではなく、公開前に必要な配
 | プレイ形式 | p1手動 + CPU4基 |
 | Board | 任意補助 |
 | 配布方式 | 静的Webビルド |
-| デプロイ先 | 要決定 |
-| 公開URL | 要決定 |
+| デプロイ先 | GitHub Pages予定 |
+| 公開URL | `https://domro3.github.io/spy-houdai/` 予定 |
 | フィードバック先 | 初回は手動収集 |
 
 ## 完了条件
@@ -56,8 +56,8 @@ M6の中心は、ゲーム内容の追加ではなく、公開前に必要な配
 
 | 種別 | 内容 | 次アクション |
 | --- | --- | --- |
-| デプロイ | Git remoteとデプロイ設定が未設定 | GitHub Pages、Netlify、Vercel、itch.io等から決める |
-| 公開URL | 未決定 | デプロイ先決定後に確定 |
+| デプロイ | GitHub Pages workflowは追加済み。GitHub remoteが未設定 | GitHub repoを作成してpushする |
+| 公開URL | `https://domro3.github.io/spy-houdai/` 予定 | push後にActions/Pagesで確認 |
 | フィードバック | 初回は手動収集に決定 | 公開先決定後に外部フォーム化するか再判断 |
 | 商標 | J-PlatPat予備確認済み | 正式タイトル、ストア掲載、収益化前は専門家確認 |
 
@@ -70,6 +70,8 @@ M6の中心は、ゲーム内容の追加ではなく、公開前に必要な配
 - 未使用かつ配布対象だったプロトタイプPNGを `public/` から削除
 - M6 release preflightを追加
 - M6 human substitute checkを実施
+- GitHub Pages workflowとPages用ビルドコマンドを追加
+- GitHub Pagesの `/spy-houdai/` サブパス配信に合わせて、Vite baseとローカルルートを調整
 
 ## 2026-07-01 初回M6 Preflight
 
@@ -99,7 +101,8 @@ M6の中心は、ゲーム内容の追加ではなく、公開前に必要な配
 
 ## 次アクション
 
-1. デプロイ先を決める
-2. デプロイ設定を追加する
-3. 公開URLで390px/1280pxの最終確認を行う
-4. Public Alpha v0.1公開Go/No-Goを判定する
+1. GitHub repoを作成してremoteを設定する
+2. `main` をpushする
+3. GitHub Actions / Pagesの完了を確認する
+4. 公開URLで390px/1280pxの最終確認を行う
+5. Public Alpha v0.1公開Go/No-Goを判定する

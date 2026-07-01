@@ -23,7 +23,6 @@
 ## 外部判断ブロッカー
 
 - Git remoteが未設定。公開先リポジトリまたはデプロイ元を決める。
-- デプロイ設定が未設定。GitHub Pages、Netlify、Vercel、itch.io等から選ぶ。
 
 ## 判定
 

@@ -40,6 +40,30 @@ export function shouldOpenRouteButtonInNewTab(activeView: LocalScreenView, targe
   return activeView === 'board' || activeView === 'player';
 }
 
+export function stripRouteBase(pathname: string, baseUrl: string): string {
+  const basePath = normalizeRouteBase(baseUrl);
+  const path = normalizeLocalPath(pathname);
+  if (!basePath) return path;
+  if (path === basePath) return '/';
+  if (path.startsWith(`${basePath}/`)) {
+    return path.slice(basePath.length) || '/';
+  }
+  return path;
+}
+
+export function withRouteBase(pathname: string, baseUrl: string): string {
+  const basePath = normalizeRouteBase(baseUrl);
+  const path = normalizeLocalPath(pathname);
+  if (!basePath) return path;
+  return path === '/' ? `${basePath}/` : `${basePath}${path}`;
+}
+
+function normalizeRouteBase(baseUrl: string): string {
+  if (!baseUrl || baseUrl === '/' || baseUrl === './') return '';
+  const path = baseUrl.startsWith('/') ? baseUrl : `/${baseUrl}`;
+  return path.replace(/\/+$/, '');
+}
+
 function normalizeLocalPath(pathname: string): string {
   const path = pathname.replace(/\/+$/, '') || '/';
   return path.startsWith('/') ? path : `/${path}`;

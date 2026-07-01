@@ -20,7 +20,9 @@ import {
   localPathForView,
   parseLocalRoute,
   shouldOpenRouteButtonInNewTab,
+  stripRouteBase,
   type LocalScreenView,
+  withRouteBase,
 } from './screens/local_routes';
 import { PlayerScreen } from './screens/PlayerScreen';
 import { PUBLIC_ALPHA_ENTRY } from './screens/public_alpha_content';
@@ -29,7 +31,8 @@ import { createHostScreenViewModel, createPlayerScreenViewModel } from './screen
 import { SyncedPlayerScreen } from './screens/SyncedPlayerScreen';
 import './styles.css';
 
-const INITIAL_LOCAL_ROUTE = parseLocalRoute(window.location.pathname);
+const ROUTE_BASE = import.meta.env.BASE_URL;
+const INITIAL_LOCAL_ROUTE = parseLocalRoute(stripRouteBase(window.location.pathname, ROUTE_BASE));
 const INITIAL_IS_ALPHA = INITIAL_LOCAL_ROUTE.view === 'alpha';
 
 function App() {
@@ -66,7 +69,7 @@ function App() {
   ].filter(Boolean).join(' ');
 
   useEffect(() => {
-    const onPopState = () => setLocalRoute(parseLocalRoute(window.location.pathname));
+    const onPopState = () => setLocalRoute(parseLocalRoute(stripRouteBase(window.location.pathname, ROUTE_BASE)));
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
   }, []);
@@ -92,7 +95,7 @@ function App() {
 
   function navigateLocal(path: string) {
     const nextRoute = parseLocalRoute(path);
-    window.history.pushState(null, '', path);
+    window.history.pushState(null, '', withRouteBase(path, ROUTE_BASE));
     setLocalRoute(nextRoute);
     if (nextRoute.playerId) {
       setActivePlayerId(nextRoute.playerId);
@@ -293,6 +296,7 @@ function App() {
           players={state.players.map((player) => ({ id: player.id, name: player.name }))}
           activeView={screenView}
           activePlayerId={safeActivePlayerId}
+          routeBase={ROUTE_BASE}
           onNavigate={navigateLocal}
         />
       )}
@@ -436,11 +440,13 @@ function LocalRouteBar({
   players,
   activeView,
   activePlayerId,
+  routeBase,
   onNavigate,
 }: {
   players: Array<{ id: string; name: string }>;
   activeView: LocalScreenView;
   activePlayerId: string;
+  routeBase: string;
   onNavigate: (path: string) => void;
 }) {
   const normalPlayView = activeView === 'board' || activeView === 'player';
@@ -472,6 +478,7 @@ function LocalRouteBar({
       <div className="local-route-links">
         {routeLinks.map((link) => {
           const opensInNewTab = shouldOpenRouteButtonInNewTab(activeView, link.active);
+          const externalPath = withRouteBase(link.path, routeBase);
           return (
             <span key={link.path} className={link.active ? 'route-link active' : 'route-link'}>
               <button
@@ -479,7 +486,7 @@ function LocalRouteBar({
                 disabled={link.active}
                 onClick={() => {
                   if (opensInNewTab) {
-                    window.open(link.path, '_blank', 'noopener,noreferrer');
+                    window.open(externalPath, '_blank', 'noopener,noreferrer');
                     return;
                   }
                   onNavigate(link.path);
@@ -492,7 +499,7 @@ function LocalRouteBar({
               >
                 {link.label}
               </button>
-              <a href={link.path} target="_blank" rel="noreferrer" title={`${link.label}を別タブで開く`}>
+              <a href={externalPath} target="_blank" rel="noreferrer" title={`${link.label}を別タブで開く`}>
                 ↗
               </a>
             </span>

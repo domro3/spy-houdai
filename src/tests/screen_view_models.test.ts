@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { GameEngine } from '../core/game_engine';
-import { parseLocalRoute, shouldOpenRouteButtonInNewTab } from '../screens/local_routes';
+import {
+  parseLocalRoute,
+  shouldOpenRouteButtonInNewTab,
+  stripRouteBase,
+  withRouteBase,
+} from '../screens/local_routes';
 import { createHostScreenViewModel, createPlayerScreenViewModel } from '../screens/screen_view_models';
 import { phaseReadyCount } from '../screens/screen_state';
 
@@ -23,6 +28,18 @@ describe('local screen routes', () => {
     expect(shouldOpenRouteButtonInNewTab('player', true)).toBe(false);
     expect(shouldOpenRouteButtonInNewTab('split', false)).toBe(false);
     expect(shouldOpenRouteButtonInNewTab('debug', false)).toBe(false);
+  });
+
+  it('keeps local routes usable under a static hosting base path', () => {
+    expect(stripRouteBase('/spy-houdai/', '/spy-houdai/')).toBe('/');
+    expect(stripRouteBase('/spy-houdai/board', '/spy-houdai/')).toBe('/board');
+    expect(stripRouteBase('/spy-houdai/player/p1', '/spy-houdai/')).toBe('/player/p1');
+    expect(stripRouteBase('/board', './')).toBe('/board');
+
+    expect(withRouteBase('/', '/spy-houdai/')).toBe('/spy-houdai/');
+    expect(withRouteBase('/board', '/spy-houdai/')).toBe('/spy-houdai/board');
+    expect(withRouteBase('/player/p1', '/spy-houdai/')).toBe('/spy-houdai/player/p1');
+    expect(withRouteBase('/board', './')).toBe('/board');
   });
 });
 
