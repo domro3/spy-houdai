@@ -1,6 +1,6 @@
 # M4 Screen Separation Prototype
 
-Status: local no-facilitator prototype with LAN relay support. This is not public internet matchmaking or account-based online play.
+Status: local no-facilitator prototype with LAN relay and phone-only WebRTC room support. This is not public matchmaking or account-based online play.
 
 ## No-Facilitator Direction
 
@@ -25,7 +25,8 @@ M4 separates the local UI into three screen responsibilities while keeping `Game
 - `src/screens/local_routes.ts`: lightweight local path parsing for `/`, `/board`, `/host`, `/player/:id`, and `/debug`.
 - `src/screens/screen_view_models.ts`: public/private screen projections used for privacy guardrails.
 - `src/local_sync/messages.ts`: serializable local sync message types.
-- `src/local_sync/transport.ts`: same-browser `BroadcastChannel` transport plus optional LAN HTTP relay transport.
+- `src/local_sync/transport.ts`: same-browser `BroadcastChannel`, optional LAN HTTP relay, and phone-only PeerJS/WebRTC room transport.
+- `src/local_sync/phone_room.ts`: room code and URL propagation helpers for phone-only sync.
 - `src/local_sync/host_session.ts`: host-owned local session controller and automatic phase progression owner.
 - `src/local_sync/player_client.ts`: local player client hook for `/player/:id`.
 - `scripts/serve_lan.mjs`: static app server with `/sync` EventSource/fetch relay endpoints for same-LAN devices.
@@ -99,6 +100,8 @@ M4.5 added a local multi-tab prototype using `BroadcastChannel`. M4.6 keeps that
 
 M7 adds a same-LAN relay server. When the app is opened from an HTTP LAN address, such as `http://192.168.1.10:8787/board`, `src/local_sync/transport.ts` uses the HTTP relay instead of `BroadcastChannel`.
 
+M7.1 adds phone-only sync. When `/board` is opened from the GitHub Pages HTTPS URL, the app creates a `sync=phone&room=<ROOM>` URL. Player links keep the same room and connect to the Board phone through PeerJS/WebRTC.
+
 Authority model:
 
 - `/board` owns `GameEngine`.
@@ -130,19 +133,21 @@ Message boundaries:
 - Player updates contain `PlayerScreenViewModel` plus a target `playerId`.
 - BroadcastChannel is same-origin and same-browser-profile only. It is not a security boundary.
 - The LAN relay broadcasts protocol messages between connected browser clients. It is for trusted local play, not authenticated internet play.
+- The phone-only PeerJS mode uses PeerJS Cloud for WebRTC signaling and DataChannel for game messages. It is a room URL, not an account or authentication boundary.
 - The code is structured as per-recipient player messages so a future authenticated transport can enforce privacy server-side.
 
 ## Known Limitations
 
-- GitHub Pages static hosting does not provide cross-device sync by itself.
+- GitHub Pages phone-only sync requires a `sync=phone&room=<ROOM>` room URL and depends on PeerJS Cloud plus browser WebRTC support.
 - Same-LAN device sync requires running `npm run serve:lan -- --host 0.0.0.0 --port 8787` on a host machine.
 - BroadcastChannel local sync only works between same-origin tabs on the same browser profile.
-- BroadcastChannel and LAN relay modes are not authentication or privacy boundaries.
+- BroadcastChannel, LAN relay, and phone room modes are not authentication or privacy boundaries.
+- TURN is not configured, so some mobile networks or strict NATs can fail to connect in phone-only mode.
 - If `/board` is closed, player tabs move to a waiting/disconnected state.
 - Reopening `/board` starts a clear local session from the board tab's current setup.
 - The `/` development shell remains single-tab local and is not the sync host.
 - `/debug` is for developers and can expose manual controls or debug information. It should not be used as the public table screen.
-- There are no rooms, LAN discovery, QR codes, authentication, or smartphone-specific pairing controls.
+- There is no room listing, LAN discovery, QR joining, authentication, or smartphone-specific pairing screen.
 - The route structure is a prototype for future separation, not a networking layer.
 
 ## Future Path
@@ -153,14 +158,14 @@ Future local network or online work should keep this boundary:
 - HostScreen consumes public projected state.
 - PlayerScreen consumes one player's projected state and sends input intents.
 - DebugPanel remains developer-only.
-- A future hosted WebSocket/WebRTC transport should preserve the message/view-model boundary.
+- A future production WebSocket/WebRTC transport should preserve the message/view-model boundary.
 - Future server-side transport must enforce that each player receives only their own private view.
 
 ## Explicitly Not Implemented
 
 - public internet online play
-- room creation or matchmaking
-- smartphone pairing
+- public room listing or matchmaking
+- smartphone pairing screen
 - QR joining
 - authentication
 - new roles, modes, boss types, or balance changes

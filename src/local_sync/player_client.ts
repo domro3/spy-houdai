@@ -40,7 +40,7 @@ export function useLocalPlayerClient(playerId: string, enabled = true): LocalPla
       return undefined;
     }
 
-    const transport = createDefaultLocalSyncTransport();
+    const transport = createDefaultLocalSyncTransport({ role: 'player', playerId });
     transportRef.current = transport;
 
     if (!transport.available) {

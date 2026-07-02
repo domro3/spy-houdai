@@ -1,7 +1,7 @@
 # M6 Release Preflight
 
 ステータス: PASS
-作成日: 2026-07-01
+作成日: 2026-07-02
 コマンド: `npm run release:m6`
 
 このレポートは、Public Alpha v0.1公開準備のうち、AIで確認できる項目と外部判断が必要な項目を分けて記録する。

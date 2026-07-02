@@ -13,6 +13,12 @@ import type { ActionSubmission, BranchVoteSubmission, GameMode, VoteSubmission }
 import { fillCpuActions, fillCpuBranchVotes, fillCpuPleas, fillCpuVotes, runCpuGame } from './cpu/autoplay';
 import { useLocalHostSession } from './local_sync/host_session';
 import { useLocalPlayerClient, type LocalPlayerClientState } from './local_sync/player_client';
+import {
+  buildPhoneSyncSearch,
+  ensurePhoneSyncRoomInUrl,
+  phoneSyncRoomFromSearch,
+  playRouteSearchFor,
+} from './local_sync/phone_room';
 import { DebugPanel } from './screens/DebugPanel';
 import { HostScreen } from './screens/HostScreen';
 import { INITIAL_ALPHA_SEED, nextAlphaSeed } from './screens/alpha_seed';
@@ -41,6 +47,7 @@ function App() {
   const [seed, setSeed] = useState(INITIAL_ALPHA_SEED);
   const [mode, setMode] = useState<GameMode>('party');
   const [localRoute, setLocalRoute] = useState(INITIAL_LOCAL_ROUTE);
+  const [phoneSyncRoom, setPhoneSyncRoom] = useState(() => phoneSyncRoomFromSearch(window.location.search));
   const [activePlayerId, setActivePlayerId] = useState(INITIAL_LOCAL_ROUTE.playerId ?? 'p1');
   const [alphaStarted, setAlphaStarted] = useState(false);
   const [alphaErrors, setAlphaErrors] = useState<string[]>([]);
@@ -69,10 +76,19 @@ function App() {
   ].filter(Boolean).join(' ');
 
   useEffect(() => {
-    const onPopState = () => setLocalRoute(parseLocalRoute(stripRouteBase(window.location.pathname, ROUTE_BASE)));
+    const onPopState = () => {
+      setLocalRoute(parseLocalRoute(stripRouteBase(window.location.pathname, ROUTE_BASE)));
+      setPhoneSyncRoom(phoneSyncRoomFromSearch(window.location.search));
+    };
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
   }, []);
+
+  useEffect(() => {
+    if (screenView !== 'board') return;
+    const room = ensurePhoneSyncRoomInUrl('/board');
+    if (room) setPhoneSyncRoom(room);
+  }, [screenView]);
 
   const rerender = () => forceRender((value) => value + 1);
   const hostSyncEnabled = screenView === 'board';
@@ -95,8 +111,10 @@ function App() {
 
   function navigateLocal(path: string) {
     const nextRoute = parseLocalRoute(path);
-    window.history.pushState(null, '', withRouteBase(path, ROUTE_BASE));
+    const search = playRouteSearchFor(path, window.location.search, window.location);
+    window.history.pushState(null, '', `${withRouteBase(path, ROUTE_BASE)}${search}`);
     setLocalRoute(nextRoute);
+    setPhoneSyncRoom(phoneSyncRoomFromSearch(search));
     if (nextRoute.playerId) {
       setActivePlayerId(nextRoute.playerId);
     }
@@ -297,6 +315,8 @@ function App() {
           activeView={screenView}
           activePlayerId={safeActivePlayerId}
           routeBase={ROUTE_BASE}
+          playRouteSearch={phoneSyncRoom ? buildPhoneSyncSearch(phoneSyncRoom) : playRouteSearchFor('/board', window.location.search, window.location)}
+          phoneSyncRoom={phoneSyncRoom}
           onNavigate={navigateLocal}
         />
       )}
@@ -441,12 +461,16 @@ function LocalRouteBar({
   activeView,
   activePlayerId,
   routeBase,
+  playRouteSearch,
+  phoneSyncRoom,
   onNavigate,
 }: {
   players: Array<{ id: string; name: string }>;
   activeView: LocalScreenView;
   activePlayerId: string;
   routeBase: string;
+  playRouteSearch: string;
+  phoneSyncRoom?: string;
   onNavigate: (path: string) => void;
 }) {
   const normalPlayView = activeView === 'board' || activeView === 'player';
@@ -466,19 +490,25 @@ function LocalRouteBar({
   ];
 
   return (
-    <nav className={normalPlayView ? 'local-route-bar play-routes' : 'local-route-bar'} aria-label="ローカル画面切替">
+    <nav className={[
+      'local-route-bar',
+      normalPlayView ? 'play-routes' : '',
+      phoneSyncRoom ? 'phone-sync-routes' : '',
+    ].filter(Boolean).join(' ')} aria-label="ローカル画面切替">
       <div>
-        <strong>{normalPlayView ? '画面リンク' : 'ローカル画面プロトタイプ'}</strong>
+        <strong>{phoneSyncRoom ? `スマホ同期ルーム ${phoneSyncRoom}` : normalPlayView ? '画面リンク' : 'ローカル画面プロトタイプ'}</strong>
         <span>
-          {normalPlayView
-            ? 'Boardと各プレイヤー端末を別タブで開きます。'
+          {phoneSyncRoom
+            ? 'P1-P6のroom付きリンクを各スマホで開きます。'
+            : normalPlayView
+              ? 'Boardと各プレイヤー端末を別タブで開きます。'
             : 'Board/Player画面では他画面を別タブで開きます。LAN/オンライン通信はまだありません。'}
         </span>
       </div>
       <div className="local-route-links">
         {routeLinks.map((link) => {
           const opensInNewTab = shouldOpenRouteButtonInNewTab(activeView, link.active);
-          const externalPath = withRouteBase(link.path, routeBase);
+          const externalPath = `${withRouteBase(link.path, routeBase)}${isPlayRoutePath(link.path) ? playRouteSearch : ''}`;
           return (
             <span key={link.path} className={link.active ? 'route-link active' : 'route-link'}>
               <button
@@ -508,6 +538,10 @@ function LocalRouteBar({
       </div>
     </nav>
   );
+}
+
+function isPlayRoutePath(path: string): boolean {
+  return path === '/board' || path.startsWith('/player/');
 }
 
 function PublicAlphaEntry({

@@ -341,6 +341,7 @@ export function useLocalHostSession({
 
     const session = new LocalHostSession({
       engine,
+      transport: createDefaultLocalSyncTransport({ role: 'host' }),
       onStateChanged,
       onStatusChanged: setStatus,
     });

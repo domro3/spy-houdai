@@ -6,7 +6,9 @@
 
 Board端末とPlayer端末を、同じWi-Fi/LAN上の別デバイスで動かす。
 
-GitHub Pages版は静的配信のため、別端末同士のリアルタイム同期はできない。別端末接続を試すときは、ホストPCでLANリレーサーバーを起動する。
+GitHub Pages版は静的配信のため、LANリレー方式の別端末同期はできない。別端末接続を試すときは、ホストPCでLANリレーサーバーを起動する。
+
+PCを使わずスマホだけで同期するときは `docs/dev/phone_device_sync.md` のPeerJS/WebRTC方式を使う。
 
 ## 起動
 
@@ -34,7 +36,7 @@ Player: http://192.168.1.10:8787/player/p1
 ## 制限
 
 - 同じWi-Fi/LAN内で使う
-- GitHub Pages公開URLだけでは別端末同期しない
+- GitHub Pages公開URLで同期する場合は `sync=phone&room=<ROOM>` のスマホ同期方式を使う
 - 外部インターネット越しの常設オンライン対戦ではない
 - HTTPSではなくHTTPのローカル検証用
 - リレーサーバーを止めると接続は切れる
@@ -43,6 +45,7 @@ Player: http://192.168.1.10:8787/player/p1
 
 - 同一ブラウザ複数タブ: `BroadcastChannel`
 - 別端末LAN接続: `EventSource` + `fetch` のHTTPリレー
+- スマホだけ: `PeerJS` + `WebRTC DataChannel`
 
 LAN URLでアクセスした場合、アプリは自動でHTTPリレーを使う。
 

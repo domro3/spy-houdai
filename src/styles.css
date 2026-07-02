@@ -2610,8 +2610,36 @@ body:has(.app-shell.view-alpha) {
   color: rgb(248 250 252 / 72%);
 }
 
-.view-board .local-route-bar.play-routes {
+.view-board .local-route-bar.play-routes:not(.phone-sync-routes) {
   display: none;
+}
+
+.view-board .local-route-bar.phone-sync-routes {
+  border-color: rgb(34 199 232 / 20%);
+  background: rgb(9 15 23 / 72%);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 5%);
+}
+
+.view-board .local-route-bar.phone-sync-routes strong {
+  color: #9defff;
+}
+
+.view-board .local-route-bar.phone-sync-routes span {
+  color: rgb(248 250 252 / 68%);
+}
+
+.view-board .local-route-bar.phone-sync-routes .route-link {
+  background: rgb(255 255 255 / 7%);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 10%);
+}
+
+.view-board .local-route-bar.phone-sync-routes .route-link button,
+.view-board .local-route-bar.phone-sync-routes .route-link a {
+  color: #eef6ff;
+}
+
+.view-board .local-route-bar.phone-sync-routes .route-link.active {
+  background: linear-gradient(135deg, var(--team-cyan), var(--team-blue));
 }
 
 .view-board .central-panel {

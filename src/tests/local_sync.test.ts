@@ -3,6 +3,12 @@ import { GameEngine } from '../core/game_engine';
 import { LocalHostSession } from '../local_sync/host_session';
 import { createLocalSyncMessage, isLocalSyncMessage } from '../local_sync/messages';
 import {
+  normalizePhoneSyncRoom,
+  phoneSyncRoomFromSearch,
+  playRouteSearchFor,
+  wantsPhoneSync,
+} from '../local_sync/phone_room';
+import {
   createBroadcastChannelTransport,
   createDefaultLocalSyncTransport,
   type LocalSyncHandler,
@@ -35,6 +41,29 @@ describe('local sync messages', () => {
   it('rejects unrelated objects', () => {
     expect(isLocalSyncMessage({ type: 'submit_action' })).toBe(false);
     expect(isLocalSyncMessage(null)).toBe(false);
+  });
+});
+
+describe('phone sync rooms', () => {
+  it('normalizes room codes and detects phone sync URLs', () => {
+    expect(normalizePhoneSyncRoom(' ab-cd! ')).toBe('ABCD');
+    expect(normalizePhoneSyncRoom('abc')).toBeUndefined();
+    expect(phoneSyncRoomFromSearch('?sync=phone&room=abc123')).toBe('ABC123');
+    expect(wantsPhoneSync('?room=ABC123')).toBe(true);
+    expect(wantsPhoneSync('?sync=local&room=ABC123')).toBe(false);
+  });
+
+  it('builds room search only for play routes', () => {
+    const publicLocation = {
+      protocol: 'https:',
+      hostname: 'domro3.github.io',
+      search: '',
+    } as Location;
+
+    expect(playRouteSearchFor('/board', '', publicLocation)).toMatch(/^\?sync=phone&room=[A-Z0-9]{6}$/);
+    expect(playRouteSearchFor('/player/p1', '?sync=phone', publicLocation)).toBe('');
+    expect(playRouteSearchFor('/player/p1', '?sync=phone&room=abc123', publicLocation)).toBe('?sync=phone&room=ABC123');
+    expect(playRouteSearchFor('/debug', '?sync=phone&room=ABC123', publicLocation)).toBe('');
   });
 });
 
@@ -150,6 +179,55 @@ describe('local sync transport', () => {
 
     expect(transport.available).toBe(false);
     expect(transport.closed).toBe(true);
+  });
+
+  it('uses phone room transport for room URLs instead of BroadcastChannel', () => {
+    vi.stubGlobal('window', {
+      location: {
+        search: '?sync=phone&room=ABC123',
+        protocol: 'https:',
+        hostname: 'domro3.github.io',
+        pathname: '/spy-houdai/board',
+      },
+    });
+    vi.stubGlobal('RTCPeerConnection', undefined);
+    vi.stubGlobal('BroadcastChannel', class {
+      constructor() {
+        throw new Error('BroadcastChannel should not be used for phone room URLs');
+      }
+    });
+
+    const transport = createDefaultLocalSyncTransport({ role: 'host' });
+    transport.close();
+
+    expect(transport.available).toBe(false);
+    expect(transport.closed).toBe(true);
+  });
+
+  it('auto-creates a phone room on the public board route', () => {
+    const replaceState = vi.fn();
+    vi.stubGlobal('window', {
+      location: {
+        search: '',
+        protocol: 'https:',
+        hostname: 'domro3.github.io',
+        pathname: '/spy-houdai/board',
+        hash: '',
+      },
+      history: { replaceState },
+    });
+    vi.stubGlobal('RTCPeerConnection', undefined);
+    vi.stubGlobal('BroadcastChannel', class {
+      constructor() {
+        throw new Error('BroadcastChannel should not be used after auto phone room creation');
+      }
+    });
+
+    const transport = createDefaultLocalSyncTransport({ role: 'host' });
+    transport.close();
+
+    expect(replaceState).toHaveBeenCalledWith(null, '', expect.stringMatching(/^\/spy-houdai\/board\?sync=phone&room=[A-Z0-9]{6}$/));
+    expect(transport.available).toBe(false);
   });
 });
 
