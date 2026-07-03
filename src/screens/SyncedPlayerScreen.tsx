@@ -5,6 +5,7 @@ import {
   GameBackdrop,
   GameIcon,
   actionIconName,
+  generatedAssetUrl,
   turretStateForAction,
 } from '../components/game/assets/visual/GameVisualAssets';
 import type { ActionSubmission, BranchPlan, BranchVoteSubmission, VoteSubmission } from '../core/types';
@@ -165,7 +166,7 @@ function SyncedIdentityPanel({ view }: { view: PlayerScreenViewModel }) {
         </div>
         <img
           className="operator-signal-art"
-          src="/assets/generated/operator_terminal_thumbnail.png"
+          src={generatedAssetUrl('assets/generated/operator_terminal_thumbnail.png')}
           alt=""
           aria-hidden="true"
           loading="eager"

@@ -68,10 +68,14 @@ const playerAccents: Record<string, string> = {
   p6: '#9a6bff',
 };
 
+export function generatedAssetUrl(path: string): string {
+  return `${import.meta.env.BASE_URL}${path.replace(/^\/+/, '')}`;
+}
+
 const generatedAssets = {
-  bossUnlinkMk01: '/assets/generated/boss_unlink_mk01_idle.png',
-  coreGuardTurret: '/assets/generated/turret_coreguard_base_blue.png',
-  linkCore: '/assets/generated/link_core_idle.png',
+  bossUnlinkMk01: generatedAssetUrl('assets/generated/boss_unlink_mk01_idle.png'),
+  coreGuardTurret: generatedAssetUrl('assets/generated/turret_coreguard_base_blue.png'),
+  linkCore: generatedAssetUrl('assets/generated/link_core_idle.png'),
 } as const;
 
 function assetStyle(playerId?: string): CSSProperties | undefined {
