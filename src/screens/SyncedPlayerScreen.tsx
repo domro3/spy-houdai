@@ -31,11 +31,11 @@ export function SyncedPlayerScreen({
   const terminalTone = view?.role === 'スパイ' ? 'terminal-spy' : 'terminal-gunner';
   const noiseTone = view?.wasSabotaged ? 'terminal-noise' : '';
   return (
-    <section className={`player-screen action-panel synced-player-screen ${terminalTone} ${noiseTone}`} aria-label="作戦端末">
+    <section className={`player-screen action-panel synced-player-screen ${terminalTone} ${noiseTone}`} aria-label="オペレーター端末">
       <GameBackdrop variant="operation-terminal" />
       <div className="panel-heading">
         <div>
-          <span className="section-kicker">作戦端末</span>
+          <span className="section-kicker">オペレーター端末</span>
           <h2>{view?.phaseInstruction ?? 'ホスト画面を待っています'}</h2>
         </div>
         <button type="button" className="icon-button" onClick={client.requestSnapshot}>
@@ -76,7 +76,7 @@ function PlayerQuickStatus({ view }: { view: PlayerScreenViewModel }) {
   return (
     <section className={`terminal-quick-status ${isSpy ? 'role-spy' : 'role-gunner'} ${view.wasSabotaged ? 'sabotaged' : ''}`}>
       <span>{view.id}</span>
-      <strong>{isSpy ? 'あなたはスパイ' : 'あなたは砲台員'}</strong>
+      <strong>{isSpy ? '裏回線オペレーター' : '通常オペレーター'}</strong>
       <em>{view.selectedActionLabel}</em>
       <b>{view.wasSabotaged ? '妨害!' : '通常'}</b>
     </section>
@@ -158,9 +158,19 @@ function SyncedIdentityPanel({ view }: { view: PlayerScreenViewModel }) {
         <span>{view.control}</span>
       </div>
       <div className="private-role-card">
-        <span>あなたの役職</span>
-        <strong>{isSpy ? 'あなたはスパイです' : 'あなたは砲台員です'}</strong>
-        <em>{isSpy ? '裏回線の行動はこの端末だけに表示されます。' : 'チーム砲台としてボスを止めます。'}</em>
+        <div>
+          <span>あなたの役職</span>
+          <strong>{isSpy ? 'あなたはスパイです' : 'あなたはオペレーターです'}</strong>
+          <em>{isSpy ? '裏回線の信号はこの端末だけに表示されます。' : 'タレットへ信号を送り、ボスを止めます。'}</em>
+        </div>
+        <img
+          className="operator-signal-art"
+          src="/assets/generated/operator_terminal_thumbnail.png"
+          alt=""
+          aria-hidden="true"
+          loading="eager"
+          decoding="async"
+        />
       </div>
       {view.wasSabotaged && (
         <div className="noise-alert-card">
@@ -219,7 +229,7 @@ function playerPhaseSubmitted(view: PlayerScreenViewModel): boolean {
 
 function playerStepKicker(view: PlayerScreenViewModel): string {
   if (view.phase === 'finished') return '結果確認';
-  if (view.phase === 'action') return 'あなたの行動';
+  if (view.phase === 'action') return '送る信号';
   if (view.phase === 'vote') return view.mode === 'party' ? 'スパイ予想' : '疑惑投票';
   if (view.phase === 'plea') return '弁明カード';
   if (view.phase === 'branch') return '作戦投票';
@@ -228,7 +238,7 @@ function playerStepKicker(view: PlayerScreenViewModel): string {
 
 function playerStepTitle(view: PlayerScreenViewModel): string {
   if (view.phase === 'finished') return '結果を確認してください';
-  if (view.phase === 'action') return '行動を1つ選んでください';
+  if (view.phase === 'action') return 'タレットへ送る信号を選んでください';
   if (view.phase === 'vote') return '投票先を1人選んでください';
   if (view.phase === 'plea') return '弁明カードを選んでください';
   if (view.phase === 'branch') return '作戦を選んでください';
@@ -244,7 +254,7 @@ function playerSubmittedTitle(view: PlayerScreenViewModel): string {
 }
 
 function playerStepBody(view: PlayerScreenViewModel): string {
-  if (view.phase === 'action' && view.mode === 'party') return '迷ったら「撃つ」。危ない予告なら「守る」、拠点が減ったら「直す」。';
+  if (view.phase === 'action' && view.mode === 'party') return '迷ったら攻撃信号。危ない予告なら防御信号、拠点が減ったら修復信号。';
   if (view.phase === 'vote' && view.mode === 'party') return '勝敗後のおまけ投票です。怪しい砲台を選んでください。';
   return '選ぶとすぐ戦況へ送信されます。';
 }
@@ -285,7 +295,7 @@ function commandDecisionHint(
     return { label: '作戦投票', body: '作戦を1つ押す', tone: 'active' };
   }
   if (view.role === 'スパイ') {
-    return { label: '裏回線', body: '妨害 / 偽装 / 支援を選ぶ', tone: 'spy' };
+    return { label: '裏回線', body: '妨害 / 偽装 / 支援信号', tone: 'spy' };
   }
   if (board?.baseWarning?.level === 'critical') {
     return { label: '拠点危険', body: '直す候補', tone: 'danger' };
@@ -302,7 +312,7 @@ function commandDecisionHint(
   if (board?.bossActionType === 'armor_regen') {
     return { label: '装甲再生', body: '撃つ候補', tone: 'active' };
   }
-  return { label: '基本行動', body: '迷ったら撃つ', tone: 'active' };
+  return { label: '基本信号', body: '迷ったら攻撃', tone: 'active' };
 }
 
 function SyncedControls({
@@ -391,7 +401,7 @@ function SyncedActionControls({
 
   return (
     <div className="manual-card action-command-card panel-action-card">
-      <ControlTitle view={view} title="行動選択" />
+      <ControlTitle view={view} title="信号選択" />
       <CommandDecisionHint view={view} board={board} />
       <SelectionStatus label="選択済み" value={view.selectedActionLabel} />
       {view.selectedActionTargetName && <SelectionStatus label="対象" value={view.selectedActionTargetName} />}

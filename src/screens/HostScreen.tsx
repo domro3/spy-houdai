@@ -356,6 +356,21 @@ function BattleEventStrip({ engine }: { engine: GameEngine }) {
         <div className={guardActive ? 'shield-ring active' : 'shield-ring'}>
           <GameEffect name="guard-barrier" active={guardActive} />
         </div>
+        {latestRound?.totalDamage ? (
+          <span className="battle-pop pop-damage">-{latestRound.totalDamage}</span>
+        ) : null}
+        {latestRound?.repairs ? (
+          <span className="battle-pop pop-repair">+{latestRound.repairs}</span>
+        ) : null}
+        {latestRound?.defenseCount ? (
+          <span className="battle-pop pop-guard">軽減 {latestRound.defenseCount}基</span>
+        ) : null}
+        {latestRound?.sabotageCount ? (
+          <span className="battle-pop pop-noise">ノイズ</span>
+        ) : null}
+        {latestRound?.bossHealing ? (
+          <span className="battle-pop pop-heal">異常回復 +{latestRound.bossHealing}?</span>
+        ) : null}
         <div
           className={[
             'battle-node',
@@ -394,19 +409,19 @@ function battleEvents(
 
   const events: Array<{ key: string; label: string; value: string; tone: string }> = [];
   if (latestRound.totalDamage > 0) {
-    events.push({ key: 'attack', label: '砲撃命中', value: `${latestRound.totalDamage}ダメージ`, tone: 'attack' });
+    events.push({ key: 'attack', label: '攻撃信号', value: `-${latestRound.totalDamage}`, tone: 'attack' });
   }
   if (latestRound.defenseCount > 0) {
-    events.push({ key: 'guard', label: 'バリア展開', value: `${latestRound.defenseCount}基`, tone: 'guard' });
+    events.push({ key: 'guard', label: '防御信号', value: `軽減 ${latestRound.defenseCount}基`, tone: 'guard' });
   }
   if (latestRound.repairs > 0) {
-    events.push({ key: 'repair', label: '修理完了', value: `+${latestRound.repairs}`, tone: 'repair' });
+    events.push({ key: 'repair', label: '修復信号', value: `+${latestRound.repairs}`, tone: 'repair' });
   }
   if (latestRound.sabotageCount > 0) {
     events.push({
       key: 'sabotage',
-      label: latestRound.sabotagePressure ? '強い通信ノイズ' : '通信ノイズ',
-      value: latestRound.sabotagePressure ? '警戒' : `${latestRound.sabotageCount}件`,
+      label: latestRound.sabotagePressure ? '強い信号ノイズ' : '信号ノイズ',
+      value: latestRound.sabotagePressure ? '警戒' : `ノイズ ${latestRound.sabotageCount}`,
       tone: latestRound.sabotagePressure ? 'sabotage pressure' : 'sabotage',
     });
   }
@@ -414,7 +429,7 @@ function battleEvents(
     events.push({ key: 'base', label: '拠点被弾', value: `-${latestRound.baseDamage}`, tone: 'danger' });
   }
   if (latestRound.bossHealing > 0) {
-    events.push({ key: 'heal', label: 'ボス回復', value: `+${latestRound.bossHealing}`, tone: 'heal' });
+    events.push({ key: 'heal', label: '異常回復', value: `+${latestRound.bossHealing}?`, tone: 'heal' });
   }
   return events.slice(0, 5);
 }
@@ -425,7 +440,7 @@ function PartyStatusBoard({ engine }: { engine: GameEngine }) {
   return (
     <div className="suspicion-board">
       <div className="board-heading">
-        <h3>ボス戦メモ</h3>
+        <h3>信号戦況メモ</h3>
         <span>短いログとボス予告を優先</span>
       </div>
       <div className="party-status-list">
@@ -434,11 +449,11 @@ function PartyStatusBoard({ engine }: { engine: GameEngine }) {
           <strong>{partyBossHint(state.currentBossAction.type)}</strong>
         </div>
         <div>
-          <span>直近火力</span>
+          <span>攻撃信号</span>
           <strong>{recentRound ? `${recentRound.totalDamage}ダメージ` : '未計測'}</strong>
         </div>
         <div>
-          <span>拠点修理</span>
+          <span>修復信号</span>
           <strong>{recentRound?.repairs ? `${recentRound.repairs}回復` : 'なし'}</strong>
         </div>
       </div>
@@ -492,8 +507,8 @@ function PublicPlayerBoard({ players }: { players: HostPlayerView[] }) {
   return (
     <section className="host-public-panel">
       <div className="board-heading">
-        <h3>公開プレイヤー状況</h3>
-        <span>役職と個別行動は進行中非公開</span>
+        <h3>公開オペレーター状況</h3>
+        <span>役職と個別信号は進行中非公開</span>
       </div>
       <div className="public-player-grid">
         {players.map((player) => (
@@ -518,11 +533,11 @@ function PublicPlayerCard({ player }: { player: HostPlayerView }) {
           <dd>{player.role}</dd>
         </div>
         <div>
-          <dt>状態</dt>
+          <dt>リンク</dt>
           <dd>{player.status}</dd>
         </div>
         <div>
-          <dt>入力</dt>
+          <dt>信号</dt>
           <dd><span className={`operation-chip ${player.inputTone}`}>{player.inputStatus}</span></dd>
         </div>
       </dl>

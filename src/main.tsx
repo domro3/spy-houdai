@@ -31,6 +31,7 @@ import {
   withRouteBase,
 } from './screens/local_routes';
 import { PlayerScreen } from './screens/PlayerScreen';
+import { PublicBoardPreview } from './screens/PublicBoardPreview';
 import { PUBLIC_ALPHA_ENTRY } from './screens/public_alpha_content';
 import { canResolveCurrentPhase, phaseLabel } from './screens/screen_state';
 import { createHostScreenViewModel, createPlayerScreenViewModel } from './screens/screen_view_models';
@@ -361,7 +362,8 @@ function App() {
             />
           )
         )}
-        {(screenView === 'split' || screenView === 'board') && <HostScreen engine={engine} />}
+        {screenView === 'split' && <HostScreen engine={engine} />}
+        {screenView === 'board' && <BoardOnlyScreen engine={engine} />}
         {screenView === 'debug' && <HostScreen engine={engine} />}
         {screenView === 'split' && (
           <PlayerScreen
@@ -380,6 +382,14 @@ function App() {
 
   {(screenView === 'split' || screenView === 'debug') && <DebugPanel engine={engine} />}
     </main>
+  );
+}
+
+function BoardOnlyScreen({ engine }: { engine: GameEngine }) {
+  return (
+    <section className="board-preview-route" aria-label="共有Board">
+      <PublicBoardPreview hostView={createHostScreenViewModel(engine)} />
+    </section>
   );
 }
 
